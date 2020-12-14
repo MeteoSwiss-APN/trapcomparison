@@ -1,6 +1,6 @@
 ---
 title: "Comparison of Pollen Traps"
-subtitle: "Evaluation of Similarity and Robustness of Eight Pollen Traps Located in Payerne During the Blooming Season 2013"
+subtitle: "Evaluation of Similarity and Robustness of Eight Pollen Traps Located in Payerne During the Blooming Season 2019"
 author: "Simon Adamov"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 always_allow_html: TRUE
@@ -12,6 +12,9 @@ output:
 ---
 
 # Setup
+
+This project is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
+The .RProfile is optimized for an interactive session in VSCode.
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(
@@ -44,6 +47,9 @@ library(ggthemr)
 # library(nparcomp)
 # library(goftest)
 
+library(conflicted)
+# conflict_prefer()
+
 # Some functions are used from these packages
 # missmap from library(Amelia)
 # transpose from library(data.table)
@@ -63,4 +69,22 @@ ggthemr("fresh")
 # devtools@2.2.1
 # usethis@1.5.1
 # devtools@2.2.1
+```
+
+# Data Import
+
+The data was prepared by Fiona Tummon and stored in the /data-raw Folder.
+Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen grains between 18.04.2019 - 04.06.2019.
+For the sake of simplicity we only look at concentrations of total pollen (i.e. the sum of all pollen taxa).
+The concentrations were averages to obtain three different timeseries:
+
+- Hourly averages
+- 6-hour averages (hourly values from 00:00 to 05:00, 06:00 to 11:00, ...)
+- Daily averages (hourly values from 00:00 to 23:00)
+
+The preprocessed data is available to the reader in the /data folder. In /data-raw/preproc.R the preprocessing is documented.
+The data has no missing or erroneous data, as it was carefully prepared by Fiona.
+
+```{r }
+
 ```
