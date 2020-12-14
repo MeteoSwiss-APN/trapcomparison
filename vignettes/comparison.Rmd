@@ -16,7 +16,7 @@ output:
 This project is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 The .RProfile is optimized for an interactive session in VSCode.
 
-```{r include=FALSE}
+```{r }
 knitr::opts_chunk$set(
   echo = FALSE,
   error = FALSE,
@@ -32,8 +32,11 @@ knitr::opts_chunk$set(
 # https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 
 library(caTools)
+library(httpgd)
+library(languageserver)
 library(MASS)
 library(tidyverse)
+library(magrittr)
 library(lubridate)
 library(ggpubr)
 library(here)
@@ -48,7 +51,9 @@ library(ggthemr)
 # library(goftest)
 
 library(conflicted)
-# conflict_prefer()
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("extract", "magrittr")
 
 # Some functions are used from these packages
 # missmap from library(Amelia)
@@ -74,17 +79,73 @@ ggthemr("fresh")
 # Data Import
 
 The data was prepared by Fiona Tummon and stored in the /data-raw Folder.
-Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen grains between 18.04.2019 - 04.06.2019.
+Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen grains between 19.04.2019 - 31.05.2019.
 For the sake of simplicity we only look at concentrations of total pollen (i.e. the sum of all pollen taxa).
-The concentrations were averages to obtain three different timeseries:
+The concentrations were temporally averaged to obtain three different timeseries:
 
 - Hourly averages
 - 6-hour averages (hourly values from 00:00 to 05:00, 06:00 to 11:00, ...)
 - Daily averages (hourly values from 00:00 to 23:00)
 
 The preprocessed data is available to the reader in the /data folder. In /data-raw/preproc.R the preprocessing is documented.
-The data has no missing or erroneous data, as it was carefully prepared by Fiona.
+The data has no missing except for the hourly Poleno timeseries, where calibration was carried out on 6 days in March.
+These six days were excluded from the analysis.
+
+The following eight traps are being compared:
+
+- Hirst 1
+- Hirst 2
+- Hund (only daily values)
+- KH-A
+- KH-B
+- Poleno
+- Rapide
+- WIBS (only daily values)
+
 
 ```{r }
+load(paste0(here(), "/data/pollen.rda"))
+aggregation <- c("daily", "sixhourly", "hourly")
+map(aggregation, ~ pollen %>% extract2(.x))
+```
 
+The number of traps measuring decreases with higher temporal resolution.
+
+```{r }
+number_of_measurements <- map(pollen, ~ .x %>%
+  group_by(trap, date, hour) %>%
+  mutate(ntraps = as.integer(as.integer(conc) != 0)) %>%
+  ungroup() %>%
+  group_by(date, hour) %>%
+  summarise(ntraps = sum(ntraps)) %>%
+  ungroup() %>%
+  mutate(ntraps = factor(ntraps)))
+
+timesteps <- map(number_of_measurements, ~ .x %>% nrow())
+
+pmap(
+  list(number_of_measurements, aggregation, c(8, 6, 6)),
+  function(first, second, third) {
+    first %>%
+      count(ntraps) %>%
+      mutate(
+        freq = scales::percent(n / nrow(first), accuracy = 0.1),
+        res = second,
+        tottraps = paste0(ntraps, " / ", third)
+      )
+  }
+) %>%
+  bind_rows() %>%
+  select(
+    "Temporal Resolution" = res,
+    "Number of Traps Measuring" = tottraps,
+    "Frequency of Occurence" = freq
+  ) %>%
+  kable(full.escape = FALSE) %>%
+  kable_styling("striped", full_width = FALSE) %>%
+  column_spec(1, border_right = TRUE) %>%
+  collapse_rows(columns = 1) %>%
+  pack_rows(NULL, 1, 2, indent = FALSE) %>%
+  pack_rows(NULL, 3, 6, indent = FALSE) %>%
+  pack_rows(NULL, 7, 11, indent = FALSE)
 ```

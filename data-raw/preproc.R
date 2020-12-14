@@ -59,7 +59,9 @@ sixhourly <- pollen_raw$hourly %>%
   )) %>%
   select(datetime, date, hour, conc, trap)
 
-pollen <- append(pollen_raw, list(sixhourly = sixhourly)) %>%
+pollen <- list(daily = pollen_raw[["daily"]],
+               sixhourly = sixhourly,
+               hourly = pollen_raw[["hourly"]]) %>%
   map(~ .x %>%
     filter(between(
       datetime,
