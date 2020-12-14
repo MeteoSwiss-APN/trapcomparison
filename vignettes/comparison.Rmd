@@ -1,0 +1,66 @@
+---
+title: "Comparison of Pollen Traps"
+subtitle: "Evaluation of Similarity and Robustness of Eight Pollen Traps Located in Payerne During the Blooming Season 2013"
+author: "Simon Adamov"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+always_allow_html: TRUE
+output:
+  html_document:
+    df_print: paged 
+  pdf_document: default
+  word_document: default
+---
+
+# Setup
+
+```{r include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  error = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.retina = 3,
+  fig.width = 10,
+  fig.height = 7,
+  out.width = "100%",
+  out.height = "100%"
+)
+# This project is using renv dependency management, for more info:
+# https://cran.r-project.org/web/packages/renv/vignettes/renv.html
+
+library(caTools)
+library(MASS)
+library(tidyverse)
+library(lubridate)
+library(ggpubr)
+library(here)
+library(kableExtra)
+library(ggthemr)
+
+# library(AeRobiology)
+# library(lme4)
+# library(psych)
+# library(robustlmm)
+# library(nparcomp)
+# library(goftest)
+
+# Some functions are used from these packages
+# missmap from library(Amelia)
+# transpose from library(data.table)
+# statistical test from library(dunn.test)
+# statistical test from library(conover.test)
+
+devtools::load_all()
+# I like the look of these plots: cttobin/ggthemr
+ggthemr("fresh")
+
+# Due to old R-Version some packages must be installed from CRAN Archive,
+# in order to knit markdown documents.
+# caTools@1.17.1.1
+# pbkrtest@0.4-7
+# nloptr@1.2.2
+# foreign@0.8-76
+# devtools@2.2.1
+# usethis@1.5.1
+# devtools@2.2.1
+```
