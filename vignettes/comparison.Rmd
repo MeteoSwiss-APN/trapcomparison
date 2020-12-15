@@ -16,7 +16,7 @@ output:
 This project is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 The .RProfile is optimized for an interactive session in VSCode.
 
-```{r }
+```{r setup}
 knitr::opts_chunk$set(
   echo = FALSE,
   error = FALSE,
@@ -103,15 +103,19 @@ The following eight traps are being compared:
 - WIBS (only daily values)
 
 
-```{r }
+```{r data}
 load(paste0(here(), "/data/pollen.rda"))
 aggregation <- c("daily", "sixhourly", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
 ```
 
+# Comparison
+
+## Some Easy Tables
+
 The number of traps measuring decreases with higher temporal resolution.
 
-```{r }
+```{r ntraps}
 number_of_measurements <- map(pollen, ~ .x %>%
   group_by(trap, date, hour) %>%
   mutate(ntraps = as.integer(as.integer(conc) != 0)) %>%
@@ -123,7 +127,7 @@ number_of_measurements <- map(pollen, ~ .x %>%
 
 timesteps <- map(number_of_measurements, ~ .x %>% nrow())
 
-pmap(
+kable_ntraps <- pmap(
   list(number_of_measurements, aggregation, c(8, 6, 6)),
   function(first, second, third) {
     first %>%
@@ -145,7 +149,60 @@ pmap(
   kable_styling("striped", full_width = FALSE) %>%
   column_spec(1, border_right = TRUE) %>%
   collapse_rows(columns = 1) %>%
-  pack_rows(NULL, 1, 2, indent = FALSE) %>%
-  pack_rows(NULL, 3, 6, indent = FALSE) %>%
-  pack_rows(NULL, 7, 11, indent = FALSE)
+  pack_rows(NULL, 1, 1, indent = FALSE) %>%
+  pack_rows(NULL, 2, 5, indent = FALSE) %>%
+  pack_rows(NULL, 6, 10, indent = FALSE)
+  
+kable_ntraps
 ```
+
+In the following when we look at measurements from traps, we simply average between the four counted lines.
+Several metrics were calculated: the frequency of occurrence for each pollen was obtained by counting the number of days that each particular pollen was detected; 
+the seasonal mean was calculated by averaging values for each pollen for all the days that it occurred; 
+and the Seasonal Pollen Integral (SPI) was calculated by integrating the concentrations of a particular pollen over the entire season (Mandrioli et al., 1998).
+
+These metrics are well-known and usually part of a Pollen Measurement study. It is common investigate individual pollen species during their the blooming. 
+Here we are calculating them for total pollen, which might not be as meaningful, but can function as a crude mechanism of comparison.
+
+```{r tables}
+pol_occurence <- pollen$daily %>%
+  group_by(trap) %>%
+  summarise(occurence = sum(conc != 0)) %>%
+  ungroup()
+
+pol_maximum <- pollen$daily %>%
+  group_by(trap) %>%
+  summarise(maximum = max(conc)) %>%
+  ungroup()
+
+pol_average <- pollen$daily %>%
+  group_by(trap) %>%
+  summarise(average = mean(conc)) %>%
+  ungroup()
+  
+pol_median <- pollen$daily %>%
+  group_by(trap) %>%
+  summarise(median = median(conc)) %>%
+  ungroup()
+
+pol_spi <- pollen$daily %>% # Seasonal Pollen Integral
+  group_by(trap) %>%
+  summarise(spi = sum(conc)) %>%
+  ungroup()
+
+kable_metrics <- pol_occurence %>%
+  inner_join(pol_maximum, by = "trap") %>%
+  inner_join(pol_average, by = "trap") %>%
+  inner_join(pol_median, by = "trap") %>%
+  inner_join(pol_spi, by = "trap") %>%
+  mutate_if(is.numeric, ~round(.)) %>%
+  kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"), full_width = FALSE, font_size = 20) %>%
+  column_spec(1, italic = TRUE, border_right = TRUE)
+
+kable_metrics
+
+```
+
+We can see that already for daily values the differences between traps are substantial.
+
