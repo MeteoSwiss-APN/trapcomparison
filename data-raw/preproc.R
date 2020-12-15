@@ -58,22 +58,37 @@ sixhourly <- pollen_raw$hourly %>%
     )
   )) %>%
   select(datetime, date, hour, conc, trap)
+  
+daily <- pollen_raw$hourly %>%
+  group_by(trap, date) %>%
+  summarise(conc = mean(conc)) %>%
+  ungroup() %>%
+  mutate(datetime = as_datetime(date),
+         hour = 0) %>%
+  select(datetime, date, hour, conc, trap) %>%
+  bind_rows(pollen_raw[["daily"]])
 
-pollen <- list(daily = pollen_raw[["daily"]],
+pollen <- list(daily = daily,
                sixhourly = sixhourly,
                hourly = pollen_raw[["hourly"]]) %>%
   map(~ .x %>%
     filter(between(
       datetime,
+      # During this period all traps have measured
       as_datetime("2019-04-19 00:00:00"),
       as_datetime("2019-05-31 23:00:00")),
       !(date %in% c(
+        # Here Poleno was undergoing calibration (values NA)
         date("2019-05-13"),
         date("2019-05-14"),
         date("2019-05-15"),
         date("2019-05-16"),
         date("2019-05-26"),
-        date("2019-05-27")
+        date("2019-05-27"),
+        # Here Rapide had a software issue (value provided in chunks)
+        date("2019-04-23"),
+        date("2019-04-24"),
+        date("2019-04-25")
       ))
     ))
 
