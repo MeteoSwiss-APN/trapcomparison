@@ -34,7 +34,7 @@ pollen_raw <-
     select(datetime, date, hour, conc, trap)) %>%
   setNames(aggregation)
 
-sixhourly <- pollen_raw$hourly %>%
+sixhour <- pollen_raw$hourly %>%
   group_by(trap) %>%
   mutate(
     hms = format(datetime, "%H:%M:%S"),
@@ -69,7 +69,7 @@ daily <- pollen_raw$hourly %>%
   bind_rows(pollen_raw[["daily"]])
 
 pollen <- list(daily = daily,
-               sixhourly = sixhourly,
+               sixhour = sixhour,
                hourly = pollen_raw[["hourly"]]) %>%
   map(~ .x %>%
     filter(between(
@@ -84,11 +84,11 @@ pollen <- list(daily = daily,
         date("2019-05-15"),
         date("2019-05-16"),
         date("2019-05-26"),
-        date("2019-05-27"),
+        date("2019-05-27")
         # Here Rapide had a software issue (value provided in chunks)
-        date("2019-04-23"),
-        date("2019-04-24"),
-        date("2019-04-25")
+        # date("2019-04-23"),
+        # date("2019-04-24"),
+        # date("2019-04-25")
       ))
     ))
 
