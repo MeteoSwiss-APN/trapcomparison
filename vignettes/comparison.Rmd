@@ -41,7 +41,8 @@ library(lubridate)
 library(ggpubr)
 library(here)
 library(kableExtra)
-library(ggthemr)
+library(RColorBrewer)
+library(padr)
 
 # library(AeRobiology)
 # library(lme4)
@@ -62,8 +63,6 @@ conflict_prefer("extract", "magrittr")
 # statistical test from library(conover.test)
 
 devtools::load_all()
-# I like the look of these plots: cttobin/ggthemr
-ggthemr("fresh")
 
 # Due to old R-Version some packages must be installed from CRAN Archive,
 # in order to knit markdown documents.
@@ -105,13 +104,13 @@ The following eight traps are being compared:
 
 ```{r data}
 load(paste0(here(), "/data/pollen.rda"))
-aggregation <- c("daily", "sixhourly", "hourly")
+aggregation <- c("daily", "six-hour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
 ```
 
 # Comparison
 
-## Some Easy Tables
+## Some Tables
 
 The number of traps measuring decreases with higher temporal resolution.
 
@@ -146,14 +145,19 @@ kable_ntraps <- pmap(
     "Frequency of Occurence" = freq
   ) %>%
   kable(full.escape = FALSE) %>%
-  kable_styling("striped", full_width = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+                full_width = FALSE,
+                font_size = 20) %>%
   column_spec(1, border_right = TRUE) %>%
   collapse_rows(columns = 1) %>%
-  pack_rows(NULL, 1, 1, indent = FALSE) %>%
-  pack_rows(NULL, 2, 5, indent = FALSE) %>%
-  pack_rows(NULL, 6, 10, indent = FALSE)
+  pack_rows(NULL, 1, 2, indent = FALSE) %>%
+  pack_rows(NULL, 3, 6, indent = FALSE) %>%
+  pack_rows(NULL, 7, 11, indent = FALSE)
   
 kable_ntraps
+
+save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
+
 ```
 
 In the following when we look at measurements from traps, we simply average between the four counted lines.
@@ -164,7 +168,7 @@ and the Seasonal Pollen Integral (SPI) was calculated by integrating the concent
 These metrics are well-known and usually part of a Pollen Measurement study. It is common investigate individual pollen species during their the blooming. 
 Here we are calculating them for total pollen, which might not be as meaningful, but can function as a crude mechanism of comparison.
 
-```{r tables}
+```{r daily_tables}
 pol_occurence <- pollen$daily %>%
   group_by(trap) %>%
   summarise(occurence = sum(conc != 0)) %>%
@@ -195,14 +199,189 @@ kable_metrics <- pol_occurence %>%
   inner_join(pol_average, by = "trap") %>%
   inner_join(pol_median, by = "trap") %>%
   inner_join(pol_spi, by = "trap") %>%
-  mutate_if(is.numeric, ~round(.)) %>%
+  mutate(across(where(is.numeric), round)) %>%
   kable(escape = FALSE) %>%
-  kable_styling(c("striped", "condensed"), full_width = FALSE, font_size = 20) %>%
+  kable_styling(c("striped", "condensed"),
+                full_width = FALSE,
+                font_size = 20) %>%
   column_spec(1, italic = TRUE, border_right = TRUE)
 
 kable_metrics
 
+save_kable(kable_metrics, file = paste0(here(), "/tables/table2_metrics.html"))
+
 ```
 
 We can see that already for daily values the differences between traps are substantial.
+Next, we investigate how large the spread within the measurements is for each trap for different temporal resolutions.
+We can see that not only the absolute measurements but also the spread of the measurements varies largely between traps.
 
+
+```{r variability_tables}
+kable_variability <- map(
+  pollen, ~ .x %>%
+    group_by(trap) %>%
+    summarise(
+      sd = sd(conc),
+      mean = mean(conc),
+      se = sd / n(),
+      cv = sd / mean
+    ) %>%
+    mutate(across(c(sd, mean), round)) %>%
+    mutate(across(c(se, cv), round, 2))
+) %>%
+  reduce(full_join, by = "trap") %>%
+  mutate(across(everything(), replace_na, "-")) %>%
+  setNames(c("Trap", rep(c("sd", "mean", "se", "cv"), times = 3))) %>%
+  kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+    full_width = FALSE,
+    font_size = 20
+  ) %>%
+  add_header_above(c(" " = 1, "Daily Averages" = 4, 
+                     "Six-Hour Averages" = 4, 
+                     "Hourly Averages" = 4)) %>% 
+  column_spec(1, italic = TRUE, border_right = TRUE)  %>%
+  column_spec(c(5, 9, 13), border_right = TRUE)
+
+
+kable_variability
+
+save_kable(kable_variability,
+  file = paste0(here(), "/tables/table3_variability.html")
+)
+
+```
+
+Of course setting a coarser temporal resolution reduces the variability in the measurements.
+The coefficient of variation (CV) for Rapide is very large. 
+For some days, it appears that all pollen grains were accounted for in at one hourly timestep.
+This might be an error in the software of the device.
+On the other side of the spectrum, poleno has the lowest spread in the measurements.
+
+# Some Plots
+
+```{r theme}
+theme_set(theme_minimal(base_size = 16) + theme(legend.title = element_blank()))
+traps_cols <- RColorBrewer::brewer.pal(8, "Set2")[c(1, 7, 4, 6, 2, 3, 5, 8)]
+names(traps_cols) <- pollen$daily$trap %>%
+  unique() %>%
+  sort()
+```
+
+## Timeseries
+
+```{r timeseries}
+map2(pollen, aggregation, function(first, second) {
+  gg1 <- first %>%
+    filter(trap %in% c("hirst1", "hirst2", "hund", "KHA")) %>%
+    pad(
+      start_val = min(first %>% pull(datetime)),
+      end_val = max(first %>% pull(datetime)),
+      group = c("trap"),
+      by = "datetime"
+    ) %>%
+    ggplot(aes(x = datetime)) +
+    geom_line(aes(y = log10(conc + 1), col = trap), alpha = 0.8) +
+    labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
+    ggtitle(paste0(
+      "Timeseries of ",
+      tools::toTitleCase(second),
+      " Total Pollen Concentrations"
+    )) +
+    scale_color_manual(values = traps_cols)
+
+  gg2 <- first %>%
+    filter(!(trap %in% c("hirst1", "hirst2", "hund", "KHA"))) %>%
+    pad(
+      start_val = min(first %>% pull(datetime)),
+      end_val = max(first %>% pull(datetime)),
+      group = c("trap"),
+      by = "datetime"
+    ) %>%
+    ggplot(aes(x = datetime)) +
+    geom_line(aes(y = log10(conc + 1), col = trap), alpha = 0.8) +
+    labs(y = "Mean Conc. [Pollen/m³]", x = "") +
+    scale_color_manual(values = traps_cols)
+
+  gg12 <- ggarrange(gg1, gg2, ncol = 1)
+
+  ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
+    gg12,
+    width = 12, height = 9, dpi = 300
+  )
+  gg12
+})
+```
+
+
+```{r }
+map2(pollen, aggregation, function(first, second) {
+  gg1 <- first %>%
+    ggplot() +
+    geom_boxplot(aes(y = log10(conc + 1), fill = trap), alpha = 0.8) +
+    labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
+    scale_fill_manual(values = traps_cols) +
+    ggtitle(paste0(
+      "Boxplot of ",
+      tools::toTitleCase(second),
+      " Total Pollen Concentrations"
+    )) +
+    theme(legend.position = "bottom")
+
+  ggsave(paste0(here(), "/figures/fig2_boxplot_", second, ".png"),
+    gg1,
+    width = 12, height = 9, dpi = 300
+  )
+  gg1
+})
+```
+
+```{r }
+
+label_xy <- c(6, 21, 200)
+
+pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
+  sd_comp <- first %>%
+    group_by(trap) %>%
+    summarise(sd = sd(conc))
+
+  gg1 <- first %>%
+    ggplot() +
+    geom_histogram(aes(y = log10(conc + 1), fill = trap),
+      alpha = 0.8, binwidth = 0.1
+    ) +
+    geom_label(
+      data = sd_comp,
+      aes(
+        label = paste(
+          "Standard Deviation:\n",
+          round(sd),
+          "Pollen / m³"
+        ),
+        x = third,
+        y = 0.7, group = trap
+      ), size = 3
+    ) +
+    facet_wrap(vars(trap), ncol = 3) +
+    theme(legend.position = "bottom") +
+    coord_flip() +
+    labs(
+      x = "Occurence of Pollen Concentrations",
+      y = "Log Mean Conc. [Pollen/m³]"
+    ) +
+    ggtitle(paste0(
+      "Histogram of ",
+      tools::toTitleCase(second),
+      " Total Pollen Concentrations"
+    )) +
+    scale_fill_manual(values = traps_cols)
+
+  ggsave(paste0(here(), "/figures/fig3_histogram_", second, ".png"),
+    gg1,
+    width = 12, height = 9, dpi = 300
+  )
+  gg1
+})
+
+```
