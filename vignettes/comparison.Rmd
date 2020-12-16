@@ -43,24 +43,13 @@ library(here)
 library(kableExtra)
 library(RColorBrewer)
 library(padr)
-
-# library(AeRobiology)
-# library(lme4)
-# library(psych)
-# library(robustlmm)
-# library(nparcomp)
-# library(goftest)
+library(psych)
+library(nparcomp)
 
 library(conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("extract", "magrittr")
-
-# Some functions are used from these packages
-# missmap from library(Amelia)
-# transpose from library(data.table)
-# statistical test from library(dunn.test)
-# statistical test from library(conover.test)
 
 devtools::load_all()
 
@@ -104,7 +93,7 @@ The following eight traps are being compared:
 
 ```{r data}
 load(paste0(here(), "/data/pollen.rda"))
-aggregation <- c("daily", "six-hour", "hourly")
+aggregation <- c("daily", "sixhour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
 ```
 
@@ -153,11 +142,9 @@ kable_ntraps <- pmap(
   pack_rows(NULL, 1, 2, indent = FALSE) %>%
   pack_rows(NULL, 3, 6, indent = FALSE) %>%
   pack_rows(NULL, 7, 11, indent = FALSE)
-  
-kable_ntraps
 
 save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
-
+kable_ntraps
 ```
 
 In the following when we look at measurements from traps, we simply average between the four counted lines.
@@ -206,10 +193,8 @@ kable_metrics <- pol_occurence %>%
                 font_size = 20) %>%
   column_spec(1, italic = TRUE, border_right = TRUE)
 
-kable_metrics
-
 save_kable(kable_metrics, file = paste0(here(), "/tables/table2_metrics.html"))
-
+kable_metrics
 ```
 
 We can see that already for daily values the differences between traps are substantial.
@@ -238,19 +223,18 @@ kable_variability <- map(
     full_width = FALSE,
     font_size = 20
   ) %>%
-  add_header_above(c(" " = 1, "Daily Averages" = 4, 
-                     "Six-Hour Averages" = 4, 
-                     "Hourly Averages" = 4)) %>% 
-  column_spec(1, italic = TRUE, border_right = TRUE)  %>%
+  add_header_above(c(
+    " " = 1, "Daily Averages" = 4,
+    "Six-Hour Averages" = 4,
+    "Hourly Averages" = 4
+  )) %>%
+  column_spec(1, italic = TRUE, border_right = TRUE) %>%
   column_spec(c(5, 9, 13), border_right = TRUE)
-
-
-kable_variability
 
 save_kable(kable_variability,
   file = paste0(here(), "/tables/table3_variability.html")
 )
-
+kable_variability
 ```
 
 Of course setting a coarser temporal resolution reduces the variability in the measurements.
@@ -261,19 +245,27 @@ On the other side of the spectrum, poleno has the lowest spread in the measureme
 
 # Some Plots
 
+H
+
 ```{r theme}
-theme_set(theme_minimal(base_size = 16) + theme(legend.title = element_blank()))
+theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
 traps_cols <- RColorBrewer::brewer.pal(8, "Set2")[c(1, 7, 4, 6, 2, 3, 5, 8)]
-names(traps_cols) <- pollen$daily$trap %>%
+traps_names <- pollen$daily$trap %>%
   unique() %>%
   sort()
+names(traps_cols) <- traps_names
 ```
 
 ## Timeseries
 
+The differences between the traps are quite substantial looking at these timeseries. 
+For higher temporal resolution rapide, KH and Hirst show some peaks, that might be a data issue (especially true for rapide).
+Most traps were able to identify days with higher pollen occurence, but the performance varies a lot (maybe also species dependent).
+
+
 ```{r timeseries}
 map2(pollen, aggregation, function(first, second) {
-  gg1 <- first %>%
+  gg_time1 <- first %>%
     filter(trap %in% c("hirst1", "hirst2", "hund", "KHA")) %>%
     pad(
       start_val = min(first %>% pull(datetime)),
@@ -282,16 +274,17 @@ map2(pollen, aggregation, function(first, second) {
       by = "datetime"
     ) %>%
     ggplot(aes(x = datetime)) +
-    geom_line(aes(y = log10(conc + 1), col = trap), alpha = 0.8) +
+    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
     labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
     ggtitle(paste0(
       "Timeseries of ",
       tools::toTitleCase(second),
       " Total Pollen Concentrations"
     )) +
-    scale_color_manual(values = traps_cols)
+    scale_color_manual(values = traps_cols) +
+    coord_cartesian(y = c(0, 1500))
 
-  gg2 <- first %>%
+  gg_time2 <- first %>%
     filter(!(trap %in% c("hirst1", "hirst2", "hund", "KHA"))) %>%
     pad(
       start_val = min(first %>% pull(datetime)),
@@ -300,24 +293,27 @@ map2(pollen, aggregation, function(first, second) {
       by = "datetime"
     ) %>%
     ggplot(aes(x = datetime)) +
-    geom_line(aes(y = log10(conc + 1), col = trap), alpha = 0.8) +
+    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
     labs(y = "Mean Conc. [Pollen/m³]", x = "") +
-    scale_color_manual(values = traps_cols)
+    scale_color_manual(values = traps_cols) +
+    coord_cartesian(y = c(0, 1500))
 
-  gg12 <- ggarrange(gg1, gg2, ncol = 1)
+  gg_time12 <- ggarrange(gg_time1, gg_time2, ncol = 1)
 
   ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
-    gg12,
+    gg_time12,
     width = 12, height = 9, dpi = 300
   )
-  gg12
+  gg_time12
 })
 ```
 
+Looking at the boxplots we can see how the spread in the measurements increses with higher temporal resolution; especially for Hirst.
+Wibs, Rapide and KHB measured less pollen than the other traps overall.
 
-```{r }
+```{r boxplot}
 map2(pollen, aggregation, function(first, second) {
-  gg1 <- first %>%
+  gg_box1 <- first %>%
     ggplot() +
     geom_boxplot(aes(y = log10(conc + 1), fill = trap), alpha = 0.8) +
     labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
@@ -327,17 +323,21 @@ map2(pollen, aggregation, function(first, second) {
       tools::toTitleCase(second),
       " Total Pollen Concentrations"
     )) +
-    theme(legend.position = "bottom")
+    theme(legend.position = "bottom") +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 
   ggsave(paste0(here(), "/figures/fig2_boxplot_", second, ".png"),
-    gg1,
+    gg_box1,
     width = 12, height = 9, dpi = 300
   )
-  gg1
+  gg_box1
 })
 ```
 
-```{r }
+Looking at the histogram, the findings above are solidified.
+Furthermore we clearly see the discrete timeseries produced by Hirst Traps and Manual Counting for higher resolutions.
+
+```{r histogram}
 
 label_xy <- c(6, 21, 200)
 
@@ -346,7 +346,7 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
     group_by(trap) %>%
     summarise(sd = sd(conc))
 
-  gg1 <- first %>%
+  gg_hist1 <- first %>%
     ggplot() +
     geom_histogram(aes(y = log10(conc + 1), fill = trap),
       alpha = 0.8, binwidth = 0.1
@@ -378,10 +378,528 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
     scale_fill_manual(values = traps_cols)
 
   ggsave(paste0(here(), "/figures/fig3_histogram_", second, ".png"),
-    gg1,
+    gg_hist1,
     width = 12, height = 9, dpi = 300
   )
-  gg1
+  gg_hist1
 })
 
+```
+
+# Relative Errors
+
+Looking at relative differences between the traps (i.e. from the common mean). Gives a clearer picture of the sources of uncertainties.
+
+```{r errordata}
+
+conc_groups <- c(
+    "Group00_10",
+    "Group10_20",
+    "Group20_50",
+    "Group50_100",
+    "Group100_300",
+    "Group300"
+  )
+
+errors <- map(pollen, ~ .x %>%
+  group_by(date, hour, datetime) %>%
+  mutate(mean = mean(conc)) %>%
+  pivot_wider(names_from = trap, values_from = conc) %>%
+  ungroup()) %>%
+  map_at(c(2, 3), ~ .x %>%
+    mutate(
+      hund = NA_real_,
+      wibs = NA_real_
+    )) %>%
+  map(~ .x %>%
+    pivot_longer(hirst1:wibs, names_to = "trap", values_to = "conc") %>%
+    mutate(reldiff = conc / mean,
+           trap = factor(trap, levels = traps_names)))
+  
+errors_conc <- map(errors, ~ .x %>%
+  mutate(
+    group = case_when(
+      mean >= 0 & mean < 10 ~ "Group00_10",
+      mean >= 10 & mean < 20 ~ "Group10_20",
+      mean >= 20 & mean < 50 ~ "Group20_50",
+      mean >= 50 & mean < 100 ~ "Group50_100",
+      mean >= 100 & mean < 300 ~ "Group100_300",
+      mean >= 300 ~ "Group300"
+    ),
+    group = factor(group, levels = conc_groups)))
+
+```
+
+The relative differences from the common mean are larger than 100% for the Hirst and Poleno traps.
+The spread in errors is very large for those traps as well.
+This does not mean that they measure worse as the rest. There is no golden standard in pollen Measuring.
+KHB and Rapide consistently measuring less, lowers the common mean.
+
+```{r relerrors}
+map2(errors, aggregation, function(first, second) {
+  gg_errors1 <- first %>%
+    ggplot(aes(y = reldiff, fill = trap)) +
+    geom_boxplot() +
+    labs(y = "Relative Difference from Common Mean", x = "") +
+    scale_fill_manual(values = traps_cols) +
+    ggtitle(paste0(
+      "Boxplot of ",
+      tools::toTitleCase(second),
+      " Measurement Differences"
+    )) +
+    theme(legend.position = "bottom") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+  ggsave(paste0(here(), "/figures/fig4_relerror_boxplot_", second, ".png"),
+    gg_errors1,
+    width = 12, height = 9, dpi = 300
+  )
+  gg_errors1
+})
+```
+
+The spread in the measurement seems to correlate with the total pollen concentrations.
+For lower concentrations Poleno is measuring more then the rest (better capture?).
+KHB and Rapide are consitently measuring less pollen than the other traps in the study.
+```{r concerrors}
+map2(errors_conc, aggregation, function(first, second) {
+  gg_conc1 <- first %>%
+    ggplot(aes(y = reldiff, fill = trap)) +
+    geom_boxplot() +
+    labs(y = "Relative Difference from Common Mean", x = "") +
+    scale_fill_manual(values = traps_cols) +
+    ggtitle(paste0(
+      "Boxplot of ",
+      tools::toTitleCase(second),
+      " Measurement Differences"
+    )) +
+    theme(legend.position = "bottom") +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    facet_wrap(~group)
+
+  ggsave(paste0(here(), "/figures/fig5_relerror_conc_boxplot_", second, ".png"),
+    gg_conc1,
+    width = 12, height = 9, dpi = 300
+  )
+  gg_conc1
+})
+```
+
+The table shows the relative differences for all traps combined.
+
+```{r relerror_kable}
+
+kable_error <- map(errors_conc, ~.x %>%
+  na.omit() %>% # We introduced NAs for hund and wibs for nicer plots above.
+  group_by(group) %>%
+  summarise(
+    sd = sd(reldiff),
+    q25 = quantile(reldiff, 0.25),
+    median = median(reldiff),
+    q75 = quantile(reldiff, 0.75)
+  ) %>%
+  ungroup %>%
+  bind_rows(
+    .x %>%
+    na.omit() %>%
+      summarise(
+        sd = sd(reldiff),
+        q25 = quantile(reldiff, 0.25),
+        median = median(reldiff),
+        q75 = quantile(reldiff, 0.75)
+      ) %>%
+      mutate(group = "all") %>%
+      ungroup())) %>%
+  bind_rows() %>%
+  mutate(across(!group, round, 2)) %>%
+    kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+    full_width = FALSE,
+    font_size = 20
+  ) %>%
+  pack_rows("Daily", 1, 5, indent = FALSE) %>%
+  pack_rows("Six-Hour", 6, 12, indent = FALSE) %>%
+  pack_rows("Hourly", 13, 19, indent = FALSE) %>%
+  add_header_above(c("Relative Differences for All Traps Combined" = 5))
+
+save_kable(kable_error,
+  file = paste0(here(), "/tables/table4_relerror.html")
+)
+
+kable_error
+
+```
+
+The density plots outline the behavior of all traps for different concentration categories (based on the common mean).
+KHB and Rapide stant out, usually measuring less than the others for concentrations below 300.
+Poleno further stand out with more pollen measured during periods of low concentrations, and a sharp spike in the 300 conc_group.
+
+```{r concerror_kable, eval = FALSE}
+map2(errors_conc, aggregation, function(data, second) {
+  gg_conc_dens <- map(conc_groups, function(first) {
+    conc_plot_data <- data %>%
+      filter(group == first)
+
+    if (nrow(conc_plot_data) > 0) {
+      conc_plot_data %>%
+        ggplot() +
+        geom_density(aes(x = conc, col = trap, fill = trap), alpha = 0.1) +
+        scale_fill_manual(
+          values = traps_cols,
+          aesthetics = c("colour", "fill")
+        ) +
+        ggtitle(first) +
+        theme(legend.position = "bottom")
+    }
+  })
+  gg_density1 <- ggarrange(
+    plotlist = Filter(Negate(is.null), gg_conc_dens),
+    ncol = 2,
+    nrow = length(Filter(
+      Negate(is.null),
+      gg_conc_dens
+    )) / 2
+  ) %>%
+    annotate_figure(
+      top = text_grob(paste(
+        "Density Plot of",
+        second,
+        "Total Pollen Measurements"
+      ),
+      size = 16
+      )
+    )
+
+  ggsave(paste0(here(), "/figures/fig6_conc_density_", second, ".png"),
+    gg_density1,
+    width = 12, height = 9, dpi = 300
+  )
+  gg_density1
+})
+
+
+```
+
+# Resdiual Analysis
+
+Pollendata usually does not fulfil the assumption of ANOVA. We want to check this in the following.
+
+- are the errors normally distributed?
+
+In a QQ-plot we plot the empirical quantiles (“what we see in the data”) vs. the theoretical quantiles (“what
+we expect from the model”). The plot should show a more or less straight line if the distributional assumption
+is correct. By default, a standard normal distribution is the theoretical “reference distribution”.
+
+```{r log}
+pollen_log <- map(pollen, ~ .x %>% mutate(conc = log(conc + 1)))
+```
+
+```{r QQ}
+map2(pollen, pollen_log, function(first, second) {
+  fit_anova <- aov(conc ~ trap,
+    data = first,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  fit_anova_log <- aov(conc ~ trap,
+    data = second,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  gg_res1 <- tibble(residuals = residuals(fit_anova, type = "pearson")) %>%
+    ggplot(aes(sample = residuals)) +
+    stat_qq(col = traps_cols[1]) +
+    stat_qq_line(col = traps_cols[8])
+
+  gg_res2 <- tibble(residuals = residuals(fit_anova_log, type = "pearson")) %>%
+    ggplot(aes(sample = residuals)) +
+    stat_qq(col = traps_cols[1]) +
+    stat_qq_line(col = traps_cols[8])
+
+  ggarrange(gg_res1, gg_res2, nrow = 1) %>%
+    annotate_figure(top = paste(
+      "QQ-Plot for the ANOVA Residuals With",
+      "(right) and Without Logarithmizing"
+    ))
+})
+```
+
+
+- is the error variance constant?
+- do the errors have mean zero?
+
+The Tukey-Anscombe plot plots the residuals vs. the fitted values. 
+It allows us to check whether the residuals have constant variance and whether the residuals have mean zero (i.e. they don’t show any deterministic pattern). 
+We don't plot the smoothing line as loess (and other) algorithms have issues when the same value is repeated a large number of times (jitter did not really help).
+
+```{r tukey}
+map2(pollen, pollen_log, function(first, second) {
+  fit_anova <- aov(conc ~ trap,
+    data = first,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  fit_anova_log <- aov(conc ~ trap,
+    data = second,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  gg_tukey1 <- tibble(
+    resid = residuals(fit_anova,
+      type = "pearson"
+    ),
+    fitted = fit_anova$fitted.values
+  ) %>%
+    ggplot(aes(x = fitted, y = resid)) +
+    geom_point(
+      alpha = 0.5,
+      position = position_jitter(
+        width = 5,
+        height = 0
+      ),
+      col = traps_cols[1]
+    ) +
+    # geom_smooth(method = "loess", col = traps_cols[4]) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[3], alpha = 0.9) +
+    coord_cartesian(ylim = c(-500, 500))
+
+  gg_tukey2 <-
+    tibble(
+      resid = residuals(fit_anova_log,
+        type = "pearson"
+      ),
+      fitted = fit_anova_log$fitted.values
+    ) %>%
+    ggplot(aes(x = fitted, y = resid)) +
+    geom_point(
+      alpha = 0.5,
+      position = position_jitter(width = 0.02, height = 0),
+      col = traps_cols[1]
+    ) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[3], alpha = 0.9) +
+    coord_cartesian(ylim = c(-3, 3))
+
+  ggarrange(gg_tukey1, gg_tukey2) %>%
+    annotate_figure(top = paste(
+      "Tukey Anscombe - Plot for the ANOVA Residuals",
+      "With (right) and Without Logarithmizing"
+    ))
+})
+```
+
+
+- are the errors independent?
+
+If the data has some serial structure (i.e., if observations were recorded in a certain time order), we typically
+want to check whether residuals close in time are more similar than residuals far apart, as this would be a
+violation of the independence assumption. We can do so by using a so-called index plot where we plot the
+residuals against time. For positively dependent residuals we would see time periods where most residuals
+have the same sign, while for negatively dependent residuals, the residuals would “jump” too often from
+positive to negative compared to independent residuals.
+
+```{r indep}
+map2(pollen, pollen_log, function(first, second) {
+  fit_anova <- aov(conc ~ trap,
+    data = first,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  fit_anova_log <- aov(conc ~ trap,
+    data = second,
+    contrasts = c("contr.sum", "contr.poly")
+  )
+
+  resid <- residuals(fit_anova, type = "pearson")
+  resid_df <- tibble(resid = resid, id = as.numeric(names(resid)))
+
+  gg_timeline1 <- tibble(
+    id = seq_len(nrow(first)),
+    time = first$datetime,
+    trap = first$trap
+  ) %>%
+    left_join(resid_df, by = "id") %>%
+    ggplot(aes(x = time, y = resid)) +
+    geom_point(aes(col = trap)) +
+    geom_line(aes(col = trap), alpha = 0.3) +
+    scale_color_manual(values = traps_cols) +
+    coord_cartesian(ylim = c(0, 1000))
+
+  resid_log <- residuals(fit_anova_log, type = "pearson")
+  resid_df_log <- tibble(resid = resid, id = as.numeric(names(resid_log)))
+
+  gg_timeline2 <- tibble(
+    id = seq_len(nrow(second)),
+    time = second$datetime,
+    trap = first$trap
+  ) %>%
+    left_join(resid_df_log, by = "id") %>%
+    ggplot(aes(x = time, y = resid)) +
+    geom_point(aes(col = trap)) +
+    geom_line(aes(col = trap), alpha = 0.3) +
+    scale_color_manual(values = traps_cols) +
+    coord_cartesian(ylim = c(0, 1000))
+
+  ggarrange(gg_timeline1, gg_timeline2, nrow = 2) %>%
+    annotate_figure(top = paste("Index-Plot for the ANOVA Residuals",
+                                 "With (left) and Without Logarithmizing"))
+})
+```
+
+Especially for higher temporal resolution none of the assumption are fulfilled and we should clearly use robust methods to analyse this dataset.
+
+# Correlation
+
+https://stats.stackexchange.com/questions/3943/kendall-tau-or-spearmans-rho
+We are using the robust method from Kendall, comparing Tau. 
+It measures the number of concordant - discordant pairs in two ranked sets of observations.
+(https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient)
+
+```{r corrdata}
+
+data_corr <- map(pollen, ~ .x %>%
+  select(conc, trap, datetime) %>%
+  pivot_wider(names_from = trap, values_from = conc, datetime))
+
+corr_matrix <- map(data_corr, ~ corr.test(
+  .x %>% select(-datetime),
+  use = "complete",
+  method = "kendall",
+  adjust = "holm",
+  alpha = .05,
+  ci = TRUE,
+  minlength = 5
+) %>%
+  extract2(1))
+
+corr_tb <- map(corr_matrix, ~ .x %>%
+  as_tibble() %>%
+  mutate(trap = rownames(.x))) %>%
+  map_at(c(2, 3), ~.x %>%
+  mutate(hund = NA_real_,
+         wibs = NA_real_)) %>%
+  map(~ .x %>% select(trap, traps_names))
+
+```
+
+```{r corrkable}
+
+kable_corr <-  corr_tb %>%
+  bind_rows() %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  mutate(across(c(hund, wibs), replace_na, "-")) %>%
+  setNames(c("", traps_names)) %>%
+  kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+    full_width = FALSE,
+    font_size = 20
+  ) %>%
+  pack_rows("Daily", 1, 8, indent = FALSE) %>%
+  pack_rows("Six-Hour", 9, 14, indent = FALSE) %>%
+  pack_rows("Hourly", 15, 20, indent = FALSE) %>%
+  add_header_above(c("Kendall Tau for Different Temporal Resolutions" = 9))
+
+save_kable(kable_corr,
+  file = paste0(here(), "/tables/table5_correlation.html")
+)
+kable_corr
+```
+
+# Kruskal-Wallis Test / Omnibus Test
+
+Kruskal-Wallis test by rank is a non-parametric alternative to one-way ANOVA test, which extends the two-samples Wilcoxon test 
+in the situation where there are more than two groups. It’s recommended when the assumptions of one-way ANOVA test are not met. 
+This tutorial describes how to compute Kruskal-Wallis test in R software. (http://www.sthda.com/english/wiki/kruskal-wallis-test-in-r)
+
+Assumptions
+The assumptions of the Kruskal-Wallis test are similar to those for the Wilcoxon-Mann-Whitney test.
+
+- Samples are random samples, or allocation to treatment group is random. 
+- The two samples are mutually independent. 
+- The measurement scale is at least ordinal, and the variable is continuous. 
+- If the test is used as a test of dominance, it has no distributional assumptions. If it used to compare medians, the distributions must be similar apart from their locations. 
+
+The test is generally considered to be robust to ties. However, if ties are present they should not be concentrated together in one part of the distribution 
+(they should have either a normal or uniform distribution)
+https://influentialpoints.com/Training/kruskal-wallis_anova-principles-properties-assumptions.htm
+
+The Wilcoxon signed-rank test assumes that the data are distributed symmetrically around the median. In other words, there should be roughly the same number of 
+values above and below the median. This can be checked by visual inspection using histogram or density estimators
+
+```{r assumption, include = FALSE}
+
+map(pollen_log, ~ .x %>%
+  ggplot(aes(x = conc)) +
+  geom_histogram(alpha = 0.7, bins = 50, fill = traps_cols[4]) +
+  geom_vline(
+    xintercept = median(.x %>% pull(conc),
+      na.rm = TRUE
+    ),
+    col = traps_cols[6]
+  ) +
+  ggtitle("Histogram of the Transformed Data With the Median (Grey Line)"))
+```
+
+The Null-Hypothesis that the median of all traps are equal can clearly be rejected. If that was not already clearly shown by the plots :-)
+
+```{r kruskal}
+map(pollen_log, function(first) {
+  kruskal.test(conc ~ trap,
+    data = first %>%
+      mutate(trap = factor(trap))
+  )
+})
+
+```
+
+# Robust Contrasts with Confidence Intervals
+
+https://www.researchgate.net/publication/282206980_nparcomp_An_R_Software_Package_for_Nonparametric_Multiple_Comparisons_and_Simultaneous_Confidence_Intervals 
+The R package nparcomp implements a broad range of rank-based nonparametric methods for multiple comparisons. 
+The single step procedures provide local test decisions in terms of multiplicity adjusted p-values and simultaneous conﬁdence intervals. 
+The null hypothesis H0: p = 1/2 is signiﬁcantly rejected at 5% level of signiﬁcance for many pairwise comparisons.
+Whenever the p-Value is < than 5% = the confidence interval contains 0.5 -> the effect from the factor trap is not statistically meaningful.
+The Estimator can also be interpreted as a proxy for the relative difference in median for two traps.
+If the Estimator is > 0.5 then the second trap tends to have larger measurements.
+```{r nparcomp}
+kable_nparcomp <- map2(pollen_log, aggregation, function(first, second) {
+  npar_contr <- nparcomp::nparcomp(
+    conc ~ trap,
+    first,
+    conf.level = 0.95,
+    alternative = "two.sided",
+    type = "Tukey"
+  )
+
+  title <- paste(
+    "Robust Contrasts and Confidence Intervals for",
+    second, "Measurements"
+  )
+  myheader <- c(title = 5)
+  names(myheader) <- title
+
+  npar_contr %>%
+    extract2("Analysis") %>%
+    mutate(across(where(is.numeric), round, 3)) %>%
+    select(Traps = Comparison, Estimator, Lower, Upper, pValue = p.Value) %>%
+    mutate(pValue = if_else(pValue < 0.05,
+      cell_spec(pValue, color = "red"),
+      cell_spec(pValue)
+    )) %>%
+    kable(escape = FALSE, format = "html") %>%
+    kable_styling("striped", full_width = FALSE) %>%
+    add_header_above(myheader)
+
+  save_kable(kable_nparcomp,
+    file = paste0(
+      here(),
+      "/tables/table6_nparcomp_",
+      second, ".html"
+    )
+  )
+})
+kable_nparcomp$daily
+kable_nparcomp$sixhour
+kable_nparcomp$hourly
 ```
