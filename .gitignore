@@ -2,3 +2,5 @@ vignettes/comparison.html
 figures/*
 tables/*
 vignettes/test.r
+vignettes/comparison.tex
+vignettes/comparison.log

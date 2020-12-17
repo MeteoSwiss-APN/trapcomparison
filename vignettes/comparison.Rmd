@@ -3,7 +3,7 @@ title: "Comparison of Pollen Traps"
 subtitle: "Evaluation of Similarity and Robustness of Eight Pollen Traps Located in Payerne During the Blooming Season 2019"
 author: "Simon Adamov"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
-always_allow_html: TRUE
+always_allow_html: true
 output:
   html_document:
     df_print: paged 
@@ -13,7 +13,8 @@ output:
 
 # Setup
 
-This project is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
+This project is using renv dependency management, for more info: 
+https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 The .RProfile is optimized for an interactive session in VSCode.
 
 ```{r setup}
@@ -67,7 +68,8 @@ devtools::load_all()
 # Data Import
 
 The data was prepared by Fiona Tummon and stored in the /data-raw Folder.
-Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen grains between 19.04.2019 - 31.05.2019.
+Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen 
+grains between 19.04.2019 - 31.05.2019.
 For the sake of simplicity we only look at concentrations of total pollen (i.e. the sum of all pollen taxa).
 The concentrations were temporally averaged to obtain three different timeseries:
 
@@ -75,8 +77,9 @@ The concentrations were temporally averaged to obtain three different timeseries
 - 6-hour averages (hourly values from 00:00 to 05:00, 06:00 to 11:00, ...)
 - Daily averages (hourly values from 00:00 to 23:00)
 
-The preprocessed data is available to the reader in the /data folder. In /data-raw/preproc.R the preprocessing is documented.
-The data has no missing except for the hourly Poleno timeseries, where calibration was carried out on 6 days in March.
+The preprocessed data is available to the reader in the /data folder. 
+In /data-raw/preproc.R the preprocessing is documented.
+The data has no missing values except for the Poleno timeseries, for which calibration was carried out on 6 days in March.
 These six days were excluded from the analysis.
 
 The following eight traps are being compared:
@@ -101,7 +104,7 @@ map(aggregation, ~ pollen %>% extract2(.x))
 
 ## Some Tables
 
-The number of traps measuring decreases with higher temporal resolution.
+The number of traps measuring pollen simultaneously decreases with higher temporal resolution.
 
 ```{r ntraps}
 number_of_measurements <- map(pollen, ~ .x %>%
@@ -133,7 +136,7 @@ kable_ntraps <- pmap(
     "Number of Traps Measuring" = tottraps,
     "Frequency of Occurence" = freq
   ) %>%
-  kable(full.escape = FALSE) %>%
+  kable(escape = FALSE) %>%
   kable_styling(c("striped", "condensed"),
                 full_width = FALSE,
                 font_size = 20) %>%
@@ -147,13 +150,16 @@ save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
 kable_ntraps
 ```
 
-In the following when we look at measurements from traps, we simply average between the four counted lines.
-Several metrics were calculated: the frequency of occurrence for each pollen was obtained by counting the number of days that each particular pollen was detected; 
-the seasonal mean was calculated by averaging values for each pollen for all the days that it occurred; 
-and the Seasonal Pollen Integral (SPI) was calculated by integrating the concentrations of a particular pollen over the entire season (Mandrioli et al., 1998).
+Several metrics were calculated: the frequency of occurrence was obtained by counting 
+the number of days on which pollen were detected; 
+the average was calculated by averaging values for total pollen measurements during the study period; 
+and the Seasonal Pollen Integral (SPI) was calculated by integrating the concentrations of total pollen
+over the study period. (Mandrioli et al., 1998).
 
-These metrics are well-known and usually part of a Pollen Measurement study. It is common investigate individual pollen species during their the blooming. 
-Here we are calculating them for total pollen, which might not be as meaningful, but can function as a crude mechanism of comparison.
+These metrics are well-known and a standard part of any Pollen Measurement study. It is common to investigate 
+individual pollen species during their blooming period. 
+Here we are calculating them for total pollen, which might not be as meaningful, but can function as a 
+crude mechanism of comparison.
 
 ```{r daily_tables}
 pol_occurence <- pollen$daily %>%
@@ -237,10 +243,8 @@ save_kable(kable_variability,
 kable_variability
 ```
 
-Of course setting a coarser temporal resolution reduces the variability in the measurements.
+Setting a coarser temporal resolution reduces the variability in the measurements.
 The coefficient of variation (CV) for Rapide is very large. 
-For some days, it appears that all pollen grains were accounted for in at one hourly timestep.
-This might be an error in the software of the device.
 On the other side of the spectrum, poleno has the lowest spread in the measurements.
 
 # Some Plots
@@ -259,8 +263,10 @@ names(traps_cols) <- traps_names
 ## Timeseries
 
 The differences between the traps are quite substantial looking at these timeseries. 
-For higher temporal resolution rapide, KH and Hirst show some peaks, that might be a data issue (especially true for rapide).
-Most traps were able to identify days with higher pollen occurence, but the performance varies a lot (maybe also species dependent).
+For higher temporal resolution rapide, KH and Hirst show some peaks, 
+that might be a data issue (especially true for rapide).
+Most traps were able to identify days with higher pollen occurence, 
+but the performance varies a lot (maybe also species dependent).
 
 
 ```{r timeseries}
@@ -308,8 +314,8 @@ map2(pollen, aggregation, function(first, second) {
 })
 ```
 
-Looking at the boxplots we can see how the spread in the measurements increses with higher temporal resolution; especially for Hirst.
-Wibs, Rapide and KHB measured less pollen than the other traps overall.
+Looking at the boxplots we can see how the spread in the measurements increases with higher temporal resolution; especially for Hirst.
+Wibs, Rapide and KHB measured less pollen than the other traps, overall.
 
 ```{r boxplot}
 map2(pollen, aggregation, function(first, second) {
@@ -334,8 +340,9 @@ map2(pollen, aggregation, function(first, second) {
 })
 ```
 
-Looking at the histogram, the findings above are solidified.
-Furthermore we clearly see the discrete timeseries produced by Hirst Traps and Manual Counting for higher resolutions.
+Looking at the histograms, the findings above are solidified.
+Furthermore, we clearly see the discrete timeseries for higher resolutions as produced by 
+Hirst Traps and Manual Counting.
 
 ```{r histogram}
 
@@ -388,7 +395,9 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
 
 # Relative Errors
 
-Looking at relative differences between the traps (i.e. from the common mean). Gives a clearer picture of the sources of uncertainties.
+Looking at relative differences between the traps (i.e. from the common mean), 
+one can investigate which traps diverge the most from the common mean.
+The general findings seem to persist across different temporal resolutions.
 
 ```{r errordata}
 
@@ -431,8 +440,8 @@ errors_conc <- map(errors, ~ .x %>%
 ```
 
 The relative differences from the common mean are larger than 100% for the Hirst and Poleno traps.
-The spread in errors is very large for those traps as well.
-This does not mean that they measure worse as the rest. There is no golden standard in pollen Measuring.
+The spread of relative differences from the common mean is very large for those traps as well.
+This does not mean that they measure worse than the rest. There is no golden standard in measuring pollen.
 KHB and Rapide consistently measuring less, lowers the common mean.
 
 ```{r relerrors}
@@ -487,7 +496,8 @@ map2(errors_conc, aggregation, function(first, second) {
 })
 ```
 
-The table shows the relative differences for all traps combined.
+The table shows the relative differences from the common mean for all traps combined.
+
 
 ```{r relerror_kable}
 
@@ -532,11 +542,13 @@ kable_error
 
 ```
 
-The density plots outline the behavior of all traps for different concentration categories (based on the common mean).
+The density plots outline the behavior of all traps for different concentration categories 
+(based on the common mean).
 KHB and Rapide stant out, usually measuring less than the others for concentrations below 300.
-Poleno further stand out with more pollen measured during periods of low concentrations, and a sharp spike in the 300 conc_group.
+Poleno further stand out with more pollen measured during periods of low concentrations, 
+and a sharp spike in the 300 conc_group.
 
-```{r concerror_kable, eval = FALSE}
+```{r concerror_kable}
 map2(errors_conc, aggregation, function(data, second) {
   gg_conc_dens <- map(conc_groups, function(first) {
     conc_plot_data <- data %>%
@@ -588,9 +600,10 @@ Pollendata usually does not fulfil the assumption of ANOVA. We want to check thi
 
 - are the errors normally distributed?
 
-In a QQ-plot we plot the empirical quantiles (“what we see in the data”) vs. the theoretical quantiles (“what
-we expect from the model”). The plot should show a more or less straight line if the distributional assumption
-is correct. By default, a standard normal distribution is the theoretical “reference distribution”.
+In a QQ-plot we plot the empirical quantiles (“what we see in the data”) vs. the theoretical quantiles 
+(“what we expect from the model”). The plot should show a more or less straight line if the 
+distributional assumption is correct. By default, a standard normal distribution is the theoretical 
+“reference distribution”.
 
 ```{r log}
 pollen_log <- map(pollen, ~ .x %>% mutate(conc = log(conc + 1)))
@@ -631,8 +644,8 @@ map2(pollen, pollen_log, function(first, second) {
 - do the errors have mean zero?
 
 The Tukey-Anscombe plot plots the residuals vs. the fitted values. 
-It allows us to check whether the residuals have constant variance and whether the residuals have mean zero (i.e. they don’t show any deterministic pattern). 
-We don't plot the smoothing line as loess (and other) algorithms have issues when the same value is repeated a large number of times (jitter did not really help).
+It allows us to check whether the residuals have constant variance and whether the residuals have mean zero 
+(i.e. they don’t show any deterministic pattern). 
 
 ```{r tukey}
 map2(pollen, pollen_log, function(first, second) {
@@ -747,14 +760,16 @@ map2(pollen, pollen_log, function(first, second) {
 })
 ```
 
-Especially for higher temporal resolution none of the assumption are fulfilled and we should clearly use robust methods to analyse this dataset.
+Especially for higher temporal resolution none of the assumption are fulfilled 
+and we should clearly use robust methods to analyse this dataset.
 
 # Correlation
 
+We are using the robust method from Spearman, comparing Rho. 
+The Spearman correlation coefficient is defined as the Pearson correlation coefficient 
+between the rank variables.
+https://en.wikipedia.org/wiki/Spearman%27s_rank_correlation_coefficient 
 https://stats.stackexchange.com/questions/3943/kendall-tau-or-spearmans-rho
-We are using the robust method from Kendall, comparing Tau. 
-It measures the number of concordant - discordant pairs in two ranked sets of observations.
-(https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient)
 
 ```{r corrdata}
 
@@ -765,7 +780,7 @@ data_corr <- map(pollen, ~ .x %>%
 corr_matrix <- map(data_corr, ~ corr.test(
   .x %>% select(-datetime),
   use = "complete",
-  method = "kendall",
+  method = "spearman",
   adjust = "holm",
   alpha = .05,
   ci = TRUE,
@@ -798,7 +813,7 @@ kable_corr <-  corr_tb %>%
   pack_rows("Daily", 1, 8, indent = FALSE) %>%
   pack_rows("Six-Hour", 9, 14, indent = FALSE) %>%
   pack_rows("Hourly", 15, 20, indent = FALSE) %>%
-  add_header_above(c("Kendall Tau for Different Temporal Resolutions" = 9))
+  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 9))
 
 save_kable(kable_corr,
   file = paste0(here(), "/tables/table5_correlation.html")
@@ -818,13 +833,15 @@ The assumptions of the Kruskal-Wallis test are similar to those for the Wilcoxon
 - Samples are random samples, or allocation to treatment group is random. 
 - The two samples are mutually independent. 
 - The measurement scale is at least ordinal, and the variable is continuous. 
-- If the test is used as a test of dominance, it has no distributional assumptions. If it used to compare medians, the distributions must be similar apart from their locations. 
+- If the test is used as a test of dominance, it has no distributional assumptions. 
+  If it used to compare medians, the distributions must be similar apart from their locations. 
 
-The test is generally considered to be robust to ties. However, if ties are present they should not be concentrated together in one part of the distribution 
-(they should have either a normal or uniform distribution)
+The test is generally considered to be robust to ties. However, if ties are present they should not be concentrated 
+together in one part of the distribution (they should have either a normal or uniform distribution)
 https://influentialpoints.com/Training/kruskal-wallis_anova-principles-properties-assumptions.htm
 
-The Wilcoxon signed-rank test assumes that the data are distributed symmetrically around the median. In other words, there should be roughly the same number of 
+The Wilcoxon signed-rank test assumes that the data are distributed symmetrically around the median. 
+In other words, there should be roughly the same number of 
 values above and below the median. This can be checked by visual inspection using histogram or density estimators
 
 ```{r assumption, include = FALSE}
@@ -841,8 +858,6 @@ map(pollen_log, ~ .x %>%
   ggtitle("Histogram of the Transformed Data With the Median (Grey Line)"))
 ```
 
-The Null-Hypothesis that the median of all traps are equal can clearly be rejected. If that was not already clearly shown by the plots :-)
-
 ```{r kruskal}
 map(pollen_log, function(first) {
   kruskal.test(conc ~ trap,
@@ -852,6 +867,7 @@ map(pollen_log, function(first) {
 })
 
 ```
+The Null-Hypothesis that the median of all traps are equal can clearly be rejected. If that was not already clearly shown by the plots :-)
 
 # Robust Contrasts with Confidence Intervals
 
@@ -887,18 +903,21 @@ kable_nparcomp <- map2(pollen_log, aggregation, function(first, second) {
       cell_spec(pValue, color = "red"),
       cell_spec(pValue)
     )) %>%
-    kable(escape = FALSE, format = "html") %>%
+    kable(escape = FALSE) %>%
     kable_styling("striped", full_width = FALSE) %>%
     add_header_above(myheader)
+})
 
+map(aggregation, function(first) {
   save_kable(kable_nparcomp,
     file = paste0(
       here(),
       "/tables/table6_nparcomp_",
-      second, ".html"
+      first, ".html"
     )
   )
 })
+
 kable_nparcomp$daily
 kable_nparcomp$sixhour
 kable_nparcomp$hourly
