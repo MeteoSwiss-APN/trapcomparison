@@ -8,7 +8,7 @@ conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 
 path_data <- paste0(here::here(), "/data-raw/")
-aggregation <- c("daily", "hourly")
+aggregation <- c("daily", "sixhour", "hourly")
 files_data <- map(
   aggregation,
   ~ list.files(paste0(path_data, .x), full.names = TRUE)
@@ -57,7 +57,8 @@ sixhour <- pollen_raw$hourly %>%
       ":00:00"
     )
   )) %>%
-  select(datetime, date, hour, conc, trap)
+  select(datetime, date, hour, conc, trap) %>%
+  bind_rows(pollen_raw[["sixhour"]])
   
 daily <- pollen_raw$hourly %>%
   group_by(trap, date) %>%
@@ -88,8 +89,13 @@ pollen <- list(daily = daily,
         # Here Rapide had a software issue (value provided in chunks)
         # date("2019-04-23"),
         # date("2019-04-24"),
-        # date("2019-04-25")
+        # date("2019-04-25"),
       ))
-    ))
+    ) %>%
+    # This is our standard to compare agains - sucking rate adjusted mean hirst
+    pivot_wider(names_from = trap, values_from = conc) %>%
+    mutate(hirst = (hirst1 + hirst2) / 2 / 1.35) %>%
+    select(-hirst1, -hirst2) %>%
+    pivot_longer(KHA:hirst, names_to = "trap", values_to = "conc"))
 
 usethis::use_data(pollen, overwrite = TRUE)
