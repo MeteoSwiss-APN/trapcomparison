@@ -347,7 +347,7 @@ Hirst Traps and Manual Counting.
 
 ```{r histogram}
 
-label_xy <- c(6, 21, 200)
+label_xy <- c(6, 21, 175)
 
 pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
   sd_comp <- first %>%
