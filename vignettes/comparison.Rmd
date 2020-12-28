@@ -79,25 +79,29 @@ The concentrations were temporally averaged to obtain three different timeseries
 
 The preprocessed data is available to the reader in the /data folder. 
 In /data-raw/preproc.R the preprocessing is documented.
-The data has no missing values except for the Poleno timeseries, for which calibration was carried out on 6 days in March.
-These six days were excluded from the analysis.
+The data has missing values in the Poleno and RapidE timeseries. For Poleno calibration was carried out on 6 days in May.
+For RapidE software mulfunctioned (it seems) during 7 days, as discussed with MDS.
+These full 13 days were excluded from the analysis for all traps and temporal resolutions.
+The whole analysis is based on the data exlcuding these 13 days, except for the timeseries plot (figure 1).
+For the timeseries the full timeseries are used, which includes NAs for Poleno and Rapid-E.
 
 The following eight traps are being compared:
 
-- Hirst 1
-- Hirst 2
-- Hund (only daily values)
+- Hirst = Mean(Hirst 1, Hirst 2) / 1.35 which will be the standard to compare against. Historically, we have the most experience with Hirst traps.
+- Hund (no hourly values)
 - KH-A
 - KH-B
 - Poleno
 - Rapide
-- WIBS (only daily values)
+- WIBS (no hourly values)
 
 
 ```{r data}
 load(paste0(here(), "/data/pollen.rda"))
+load(paste0(here(), "/data/pollen_full.rda"))
 aggregation <- c("daily", "sixhour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
+
 ```
 
 # Comparison
@@ -119,7 +123,7 @@ number_of_measurements <- map(pollen, ~ .x %>%
 timesteps <- map(number_of_measurements, ~ .x %>% nrow())
 
 kable_ntraps <- pmap(
-  list(number_of_measurements, aggregation, c(8, 6, 6)),
+  list(number_of_measurements, aggregation, c(7, 7, 5)),
   function(first, second, third) {
     first %>%
       count(ntraps) %>%
@@ -142,9 +146,9 @@ kable_ntraps <- pmap(
                 font_size = 20) %>%
   column_spec(1, border_right = TRUE) %>%
   collapse_rows(columns = 1) %>%
-  pack_rows(NULL, 1, 2, indent = FALSE) %>%
-  pack_rows(NULL, 3, 6, indent = FALSE) %>%
-  pack_rows(NULL, 7, 11, indent = FALSE)
+  pack_rows(NULL, 1, 1, indent = FALSE) %>%
+  pack_rows(NULL, 2, 4, indent = FALSE) %>%
+  pack_rows(NULL, 5, 7, indent = FALSE)
 
 save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
 kable_ntraps
@@ -249,11 +253,9 @@ On the other side of the spectrum, poleno has the lowest spread in the measureme
 
 # Some Plots
 
-H
-
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
-traps_cols <- RColorBrewer::brewer.pal(8, "Set2")[c(1, 7, 4, 6, 2, 3, 5, 8)]
+traps_cols <- RColorBrewer::brewer.pal(7, "Set2")[c(1, 7, 4, 6, 2, 3, 5)]
 traps_names <- pollen$daily$trap %>%
   unique() %>%
   sort()
@@ -267,51 +269,55 @@ For higher temporal resolution rapide, KH and Hirst show some peaks,
 that might be a data issue (especially true for rapide).
 Most traps were able to identify days with higher pollen occurence, 
 but the performance varies a lot (maybe also species dependent).
+The concentrations are scaled here to match Hirst (conc / mean(trap_i) * mean(trap_hirst)).
+Whereas the mean was calculated across the full period.
 
 
 ```{r timeseries}
-map2(pollen, aggregation, function(first, second) {
-  gg_time1 <- first %>%
-    filter(trap %in% c("hirst1", "hirst2", "hund", "KHA")) %>%
-    pad(
-      start_val = min(first %>% pull(datetime)),
-      end_val = max(first %>% pull(datetime)),
-      group = c("trap"),
-      by = "datetime"
-    ) %>%
-    ggplot(aes(x = datetime)) +
-    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
-    labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
-    ggtitle(paste0(
-      "Timeseries of ",
-      tools::toTitleCase(second),
-      " Total Pollen Concentrations"
-    )) +
-    scale_color_manual(values = traps_cols) +
-    coord_cartesian(y = c(0, 1500))
+pmap(
+  list(
+    pollen_full,
+    aggregation,
+    c("2019-05-31", "2019-04-25", "2019-04-22")
+  ),
+  function(first, second, third, fourth) {
+    gg_time1 <- first %>%
+      group_by(trap) %>%
+      mutate(mean = mean(conc, na.rm = TRUE)) %>%
+      left_join(
+        first %>%
+          filter(trap == "hirst") %>%
+          group_by(trap) %>%
+          mutate(mean = mean(conc)) %>%
+          ungroup() %>%
+          select(date, mean_hirst = mean),
+        by = "date"
+      ) %>%
+      mutate(conc = conc / mean * mean_hirst) %>%
+      pad(
+        start_val = min(first %>% pull(datetime)),
+        end_val = max(first %>% pull(datetime)),
+        group = c("trap"),
+        by = "datetime"
+      ) %>%
+      filter(date < date(third)) %>%
+      ggplot(aes(x = datetime)) +
+      geom_line(aes(y = conc, col = trap), alpha = 0.8) +
+      labs(y = "Mean Conc. [Pollen/m³]", x = "") +
+      ggtitle(paste0(
+        "Timeseries of ",
+        tools::toTitleCase(second),
+        " Total Pollen Concentrations"
+      )) +
+      scale_color_manual(values = traps_cols)
 
-  gg_time2 <- first %>%
-    filter(!(trap %in% c("hirst1", "hirst2", "hund", "KHA"))) %>%
-    pad(
-      start_val = min(first %>% pull(datetime)),
-      end_val = max(first %>% pull(datetime)),
-      group = c("trap"),
-      by = "datetime"
-    ) %>%
-    ggplot(aes(x = datetime)) +
-    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
-    labs(y = "Mean Conc. [Pollen/m³]", x = "") +
-    scale_color_manual(values = traps_cols) +
-    coord_cartesian(y = c(0, 1500))
-
-  gg_time12 <- ggarrange(gg_time1, gg_time2, ncol = 1)
-
-  ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
-    gg_time12,
-    width = 12, height = 9, dpi = 300
-  )
-  gg_time12
-})
+    ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
+      gg_time1,
+      width = 12, height = 9, dpi = 300
+    )
+    gg_time1
+  }
+)
 ```
 
 Looking at the boxplots we can see how the spread in the measurements increases with higher temporal resolution; especially for Hirst.
@@ -330,7 +336,8 @@ map2(pollen, aggregation, function(first, second) {
       " Total Pollen Concentrations"
     )) +
     theme(legend.position = "bottom") +
-    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+    coord_cartesian(ylim = c(0, 3))
 
   ggsave(paste0(here(), "/figures/fig2_boxplot_", second, ".png"),
     gg_box1,
@@ -346,7 +353,7 @@ Hirst Traps and Manual Counting.
 
 ```{r histogram}
 
-label_xy <- c(6, 21, 200)
+label_xy <- c(6, 21, 175)
 
 pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
   sd_comp <- first %>%
@@ -395,14 +402,16 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
 
 # Relative Errors
 
-Looking at relative differences between the traps (i.e. from the common mean), 
-one can investigate which traps diverge the most from the common mean.
+Looking at relative differences between Hirst and the other traps, 
+one can investigate which traps diverge the most from the historically used Hirst traps.
 The general findings seem to persist across different temporal resolutions.
+It is common to exclude measurements above a 10 pollengrains per m^3 threshold.
+Hirst often measures 0 pollen grains, as the measured concentrations 
+by this device are of discrete nature for low concentrations.
 
 ```{r errordata}
 
 conc_groups <- c(
-    "Group00_10",
     "Group10_20",
     "Group20_50",
     "Group50_100",
@@ -411,24 +420,26 @@ conc_groups <- c(
   )
 
 errors <- map(pollen, ~ .x %>%
-  group_by(date, hour, datetime) %>%
-  mutate(mean = mean(conc)) %>%
+  # Here we previously used the common mean of all traps,
+  # but now decided to compare to Hirst
   pivot_wider(names_from = trap, values_from = conc) %>%
-  ungroup()) %>%
-  map_at(c(2, 3), ~ .x %>%
+  # Divsion by zero otherwise leads to many NAs, especially for hourly values
+  mutate(mean = hirst)) %>%
+  map_at(3, ~ .x %>%
     mutate(
       hund = NA_real_,
       wibs = NA_real_
     )) %>%
   map(~ .x %>%
-    pivot_longer(hirst1:wibs, names_to = "trap", values_to = "conc") %>%
-    mutate(reldiff = conc / mean,
-           trap = factor(trap, levels = traps_names)))
+    select(datetime, date, hour, mean, all_of(traps_names)) %>%
+    pivot_longer(hirst:wibs, names_to = "trap", values_to = "conc") %>%
+    mutate(reldiff = (conc - mean) / mean,
+           trap = factor(trap, levels = traps_names)) %>%
+    filter(mean > 10))
   
 errors_conc <- map(errors, ~ .x %>%
   mutate(
     group = case_when(
-      mean >= 0 & mean < 10 ~ "Group00_10",
       mean >= 10 & mean < 20 ~ "Group10_20",
       mean >= 20 & mean < 50 ~ "Group20_50",
       mean >= 50 & mean < 100 ~ "Group50_100",
@@ -439,26 +450,28 @@ errors_conc <- map(errors, ~ .x %>%
 
 ```
 
-The relative differences from the common mean are larger than 100% for the Hirst and Poleno traps.
-The spread of relative differences from the common mean is very large for those traps as well.
+The relative differences from the Hirst mean are substantial, Hund and Poleno measure more pollen than Hirst; Wibs, KHB and Rapide measure less. 
+For higher temporal Resolutions the differences become larger. Please note that some outliers (black dots) were cut off, reaching up to almost 5000%.
 This does not mean that they measure worse than the rest. There is no golden standard in measuring pollen.
-KHB and Rapide consistently measuring less, lowers the common mean.
+
 
 ```{r relerrors}
 map2(errors, aggregation, function(first, second) {
   gg_errors1 <- first %>%
+    filter(trap != "hirst") %>%
     ggplot(aes(y = reldiff, fill = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Common Mean", x = "") +
+    labs(y = "Relative Difference from Hirst", x = "") +
     scale_fill_manual(values = traps_cols) +
     ggtitle(paste0(
       "Boxplot of ",
       tools::toTitleCase(second),
-      " Measurement Differences"
+      " Measurement Differences from Hirst"
     )) +
     theme(legend.position = "bottom") +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+    coord_cartesian(ylim = c(-1, 3))
 
   ggsave(paste0(here(), "/figures/fig4_relerror_boxplot_", second, ".png"),
     gg_errors1,
@@ -469,23 +482,27 @@ map2(errors, aggregation, function(first, second) {
 ```
 
 The spread in the measurement seems to correlate with the total pollen concentrations.
-For lower concentrations Poleno is measuring more then the rest (better capture?).
-KHB and Rapide are consitently measuring less pollen than the other traps in the study.
+For lower concentrations Poleno and Hund are measuring more then the Hirst (better capture?).
+KHB, Wibs and Rapide are consitently measuring less pollen than the other traps in the study.
+Be careful, these are log scales, as the differences can become very large. 
+A value of 1 on the y axis reflects a 10x larger value for that trap compared to Hirst.
 ```{r concerrors}
 map2(errors_conc, aggregation, function(first, second) {
   gg_conc1 <- first %>%
-    ggplot(aes(y = reldiff, fill = trap)) +
+  filter(trap != "hirst") %>%
+    ggplot(aes(y = log10(reldiff), fill = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Common Mean", x = "") +
+    labs(y = "Relative Difference from Hirst Mean", x = "") +
     scale_fill_manual(values = traps_cols) +
     ggtitle(paste0(
       "Boxplot of ",
       tools::toTitleCase(second),
-      " Measurement Differences"
+      " Log. Measurement Differences"
     )) +
     theme(legend.position = "bottom") +
+    annotation_logticks(sides = "l") +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    coord_cartesian(ylim = c(-1.5, 1.5)) +
     facet_wrap(~group)
 
   ggsave(paste0(here(), "/figures/fig5_relerror_conc_boxplot_", second, ".png"),
@@ -496,15 +513,15 @@ map2(errors_conc, aggregation, function(first, second) {
 })
 ```
 
-The table shows the relative differences from the common mean for all traps combined.
-
+The table shows the relative differences from Hirst for all traps combined.
 
 ```{r relerror_kable}
-
+errors_conc$hourly %>% summary
 kable_error <- map(errors_conc, ~.x %>%
   na.omit() %>% # We introduced NAs for hund and wibs for nicer plots above.
   group_by(group) %>%
   summarise(
+    mean = mean(reldiff),
     sd = sd(reldiff),
     q25 = quantile(reldiff, 0.25),
     median = median(reldiff),
@@ -515,6 +532,7 @@ kable_error <- map(errors_conc, ~.x %>%
     .x %>%
     na.omit() %>%
       summarise(
+        mean = mean(reldiff),
         sd = sd(reldiff),
         q25 = quantile(reldiff, 0.25),
         median = median(reldiff),
@@ -530,9 +548,9 @@ kable_error <- map(errors_conc, ~.x %>%
     font_size = 20
   ) %>%
   pack_rows("Daily", 1, 5, indent = FALSE) %>%
-  pack_rows("Six-Hour", 6, 12, indent = FALSE) %>%
-  pack_rows("Hourly", 13, 19, indent = FALSE) %>%
-  add_header_above(c("Relative Differences for All Traps Combined" = 5))
+  pack_rows("Six-Hour", 6, 11, indent = FALSE) %>%
+  pack_rows("Hourly", 12, 17, indent = FALSE) %>%
+  add_header_above(c("Relative Differences for All Traps Combined" = 6))
 
 save_kable(kable_error,
   file = paste0(here(), "/tables/table4_relerror.html")
@@ -543,36 +561,36 @@ kable_error
 ```
 
 The density plots outline the behavior of all traps for different concentration categories 
-(based on the common mean).
+(based on the Hirst mean).
 KHB and Rapide stant out, usually measuring less than the others for concentrations below 300.
 Poleno further stand out with more pollen measured during periods of low concentrations, 
 and a sharp spike in the 300 conc_group.
 
 ```{r concerror_kable}
 map2(errors_conc, aggregation, function(data, second) {
-  gg_conc_dens <- map(conc_groups, function(first) {
-    conc_plot_data <- data %>%
-      filter(group == first)
+  gg_conc_dens <- map2(
+    conc_groups,
+    c(75, 200, 200, 300, 1000),
+    function(first, second) {
+      conc_plot_data <- data %>%
+        filter(group == first)
 
-    if (nrow(conc_plot_data) > 0) {
-      conc_plot_data %>%
-        ggplot() +
-        geom_density(aes(x = conc, col = trap, fill = trap), alpha = 0.1) +
-        scale_fill_manual(
-          values = traps_cols,
-          aesthetics = c("colour", "fill")
-        ) +
-        ggtitle(first) +
-        theme(legend.position = "bottom")
+      if (nrow(conc_plot_data) > 0) {
+        conc_plot_data %>%
+          ggplot() +
+          geom_density(aes(x = conc, col = trap, fill = trap), alpha = 0.1) +
+          scale_fill_manual(
+            values = traps_cols,
+            aesthetics = c("colour", "fill")
+          ) +
+          ggtitle(first) +
+          theme(legend.position = "bottom") +
+          coord_cartesian(xlim = c(0, second))
+      }
     }
-  })
+  )
   gg_density1 <- ggarrange(
-    plotlist = Filter(Negate(is.null), gg_conc_dens),
-    ncol = 2,
-    nrow = length(Filter(
-      Negate(is.null),
-      gg_conc_dens
-    )) / 2
+    plotlist = gg_conc_dens
   ) %>%
     annotate_figure(
       top = text_grob(paste(
@@ -591,7 +609,6 @@ map2(errors_conc, aggregation, function(data, second) {
   gg_density1
 })
 
-
 ```
 
 # Resdiual Analysis
@@ -606,30 +623,36 @@ distributional assumption is correct. By default, a standard normal distribution
 “reference distribution”.
 
 ```{r log}
-pollen_log <- map(pollen, ~ .x %>% mutate(conc = log(conc + 1)))
+pollen_10 <- map(pollen, ~ .x %>%
+  pivot_wider(names_from = trap, values_from = conc) %>%
+  filter(hirst > 10) %>%
+  pivot_longer(KHA:hirst, names_to = "trap", values_to = "conc") %>%
+  mutate(trap = factor(trap),
+         trap = relevel(trap, ref = "hirst")))
+
+pollen_10_log <- map(pollen, ~ .x %>% mutate(conc = log(conc + 1)))
 ```
 
+The default contrast is contr treatment and with relevel we made sure that Hirst is the reference level.
+
 ```{r QQ}
-map2(pollen, pollen_log, function(first, second) {
+map2(pollen_10, pollen_10_log, function(first, second) {
   fit_anova <- aov(conc ~ trap,
-    data = first,
-    contrasts = c("contr.sum", "contr.poly")
-  )
+    data = first)
 
   fit_anova_log <- aov(conc ~ trap,
-    data = second,
-    contrasts = c("contr.sum", "contr.poly")
+    data = second
   )
 
   gg_res1 <- tibble(residuals = residuals(fit_anova, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
     stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[8])
+    stat_qq_line(col = traps_cols[5])
 
   gg_res2 <- tibble(residuals = residuals(fit_anova_log, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
     stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[8])
+    stat_qq_line(col = traps_cols[5])
 
   ggarrange(gg_res1, gg_res2, nrow = 1) %>%
     annotate_figure(top = paste(
@@ -648,15 +671,13 @@ It allows us to check whether the residuals have constant variance and whether t
 (i.e. they don’t show any deterministic pattern). 
 
 ```{r tukey}
-map2(pollen, pollen_log, function(first, second) {
+map2(pollen_10, pollen_10_log, function(first, second) {
   fit_anova <- aov(conc ~ trap,
-    data = first,
-    contrasts = c("contr.sum", "contr.poly")
+    data = first
   )
 
   fit_anova_log <- aov(conc ~ trap,
-    data = second,
-    contrasts = c("contr.sum", "contr.poly")
+    data = second
   )
 
   gg_tukey1 <- tibble(
@@ -713,17 +734,13 @@ have the same sign, while for negatively dependent residuals, the residuals woul
 positive to negative compared to independent residuals.
 
 ```{r indep}
-map2(pollen, pollen_log, function(first, second) {
+map2(pollen_10, pollen_10_log, function(first, second) {
   fit_anova <- aov(conc ~ trap,
-    data = first,
-    contrasts = c("contr.sum", "contr.poly")
+    data = first
   )
-
   fit_anova_log <- aov(conc ~ trap,
-    data = second,
-    contrasts = c("contr.sum", "contr.poly")
+    data = second
   )
-
   resid <- residuals(fit_anova, type = "pearson")
   resid_df <- tibble(resid = resid, id = as.numeric(names(resid)))
 
@@ -740,23 +757,23 @@ map2(pollen, pollen_log, function(first, second) {
     coord_cartesian(ylim = c(0, 1000))
 
   resid_log <- residuals(fit_anova_log, type = "pearson")
-  resid_df_log <- tibble(resid = resid, id = as.numeric(names(resid_log)))
+  resid_df_log <- tibble(resid = resid_log, id = as.numeric(names(resid_log)))
 
   gg_timeline2 <- tibble(
     id = seq_len(nrow(second)),
     time = second$datetime,
-    trap = first$trap
+    trap = second$trap
   ) %>%
     left_join(resid_df_log, by = "id") %>%
     ggplot(aes(x = time, y = resid)) +
     geom_point(aes(col = trap)) +
     geom_line(aes(col = trap), alpha = 0.3) +
     scale_color_manual(values = traps_cols) +
-    coord_cartesian(ylim = c(0, 1000))
+    coord_cartesian(ylim = c(0, 8))
 
   ggarrange(gg_timeline1, gg_timeline2, nrow = 2) %>%
     annotate_figure(top = paste("Index-Plot for the ANOVA Residuals",
-                                 "With (left) and Without Logarithmizing"))
+                                 "With (bottom) and Without Logarithmizing"))
 })
 ```
 
@@ -773,7 +790,7 @@ https://stats.stackexchange.com/questions/3943/kendall-tau-or-spearmans-rho
 
 ```{r corrdata}
 
-data_corr <- map(pollen, ~ .x %>%
+data_corr <- map(pollen_10, ~ .x %>%
   select(conc, trap, datetime) %>%
   pivot_wider(names_from = trap, values_from = conc, datetime))
 
@@ -791,10 +808,14 @@ corr_matrix <- map(data_corr, ~ corr.test(
 corr_tb <- map(corr_matrix, ~ .x %>%
   as_tibble() %>%
   mutate(trap = rownames(.x))) %>%
-  map_at(c(2, 3), ~.x %>%
-  mutate(hund = NA_real_,
-         wibs = NA_real_)) %>%
-  map(~ .x %>% select(trap, traps_names))
+  map_at(c(2, 3), ~ .x %>%
+    mutate(
+      hund = NA_real_,
+      wibs = NA_real_
+    )) %>%
+  map(~ .x %>%
+    select(trap, all_of(traps_names)) %>%
+    arrange(trap))
 
 ```
 
@@ -810,10 +831,10 @@ kable_corr <-  corr_tb %>%
     full_width = FALSE,
     font_size = 20
   ) %>%
-  pack_rows("Daily", 1, 8, indent = FALSE) %>%
-  pack_rows("Six-Hour", 9, 14, indent = FALSE) %>%
-  pack_rows("Hourly", 15, 20, indent = FALSE) %>%
-  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 9))
+  pack_rows("Daily", 1, 7, indent = FALSE) %>%
+  pack_rows("Six-Hour", 8, 14, indent = FALSE) %>%
+  pack_rows("Hourly", 15, 19, indent = FALSE) %>%
+  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 8))
 
 save_kable(kable_corr,
   file = paste0(here(), "/tables/table5_correlation.html")
@@ -846,7 +867,7 @@ values above and below the median. This can be checked by visual inspection usin
 
 ```{r assumption, include = FALSE}
 
-map(pollen_log, ~ .x %>%
+map(pollen_10_log, ~ .x %>%
   ggplot(aes(x = conc)) +
   geom_histogram(alpha = 0.7, bins = 50, fill = traps_cols[4]) +
   geom_vline(
@@ -859,7 +880,7 @@ map(pollen_log, ~ .x %>%
 ```
 
 ```{r kruskal}
-map(pollen_log, function(first) {
+map(pollen_10_log, function(first) {
   kruskal.test(conc ~ trap,
     data = first %>%
       mutate(trap = factor(trap))
@@ -879,13 +900,14 @@ Whenever the p-Value is < than 5% = the confidence interval contains 0.5 -> the 
 The Estimator can also be interpreted as a proxy for the relative difference in median for two traps.
 If the Estimator is > 0.5 then the second trap tends to have larger measurements.
 ```{r nparcomp}
-kable_nparcomp <- map2(pollen_log, aggregation, function(first, second) {
+kable_nparcomp <- map2(pollen_10_log, aggregation, function(first, second) {
   npar_contr <- nparcomp::nparcomp(
     conc ~ trap,
     first,
     conf.level = 0.95,
     alternative = "two.sided",
-    type = "Tukey"
+    type = "Dunnet",
+    control = "hirst"
   )
 
   title <- paste(
