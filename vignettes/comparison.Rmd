@@ -79,8 +79,11 @@ The concentrations were temporally averaged to obtain three different timeseries
 
 The preprocessed data is available to the reader in the /data folder. 
 In /data-raw/preproc.R the preprocessing is documented.
-The data has no missing values except for the Poleno timeseries, for which calibration was carried out on 6 days in March.
-These six days were excluded from the analysis.
+The data has missing values in the Poleno and RapidE timeseries. For Poleno calibration was carried out on 6 days in May.
+For RapidE software mulfunctioned (it seems) during 7 days, as discussed with MDS.
+These full 13 days were excluded from the analysis for all traps and temporal resolutions.
+The whole analysis is based on the data exlcuding these 13 days, except for the timeseries plot (figure 1).
+For the timeseries the full timeseries are used, which includes NAs for Poleno and Rapid-E.
 
 The following eight traps are being compared:
 
@@ -95,9 +98,9 @@ The following eight traps are being compared:
 
 ```{r data}
 load(paste0(here(), "/data/pollen.rda"))
+load(paste0(here(), "/data/pollen_full.rda"))
 aggregation <- c("daily", "sixhour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
-
 
 ```
 
@@ -143,9 +146,9 @@ kable_ntraps <- pmap(
                 font_size = 20) %>%
   column_spec(1, border_right = TRUE) %>%
   collapse_rows(columns = 1) %>%
-  pack_rows(NULL, 1, 2, indent = FALSE) %>%
-  pack_rows(NULL, 3, 5, indent = FALSE) %>%
-  pack_rows(NULL, 6, 9, indent = FALSE)
+  pack_rows(NULL, 1, 1, indent = FALSE) %>%
+  pack_rows(NULL, 2, 4, indent = FALSE) %>%
+  pack_rows(NULL, 5, 7, indent = FALSE)
 
 save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
 kable_ntraps
@@ -250,8 +253,6 @@ On the other side of the spectrum, poleno has the lowest spread in the measureme
 
 # Some Plots
 
-H
-
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
 traps_cols <- RColorBrewer::brewer.pal(7, "Set2")[c(1, 7, 4, 6, 2, 3, 5)]
@@ -268,51 +269,55 @@ For higher temporal resolution rapide, KH and Hirst show some peaks,
 that might be a data issue (especially true for rapide).
 Most traps were able to identify days with higher pollen occurence, 
 but the performance varies a lot (maybe also species dependent).
+The concentrations are scaled here to match Hirst (conc / mean(trap_i) * mean(trap_hirst)).
+Whereas the mean was calculated across the full period.
 
 
 ```{r timeseries}
-map2(pollen, aggregation, function(first, second) {
-  gg_time1 <- first %>%
-    filter(trap %in% c("hirst", "hund", "KHA")) %>%
-    pad(
-      start_val = min(first %>% pull(datetime)),
-      end_val = max(first %>% pull(datetime)),
-      group = c("trap"),
-      by = "datetime"
-    ) %>%
-    ggplot(aes(x = datetime)) +
-    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
-    labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
-    ggtitle(paste0(
-      "Timeseries of ",
-      tools::toTitleCase(second),
-      " Total Pollen Concentrations"
-    )) +
-    scale_color_manual(values = traps_cols) +
-    coord_cartesian(y = c(0, 1500))
+pmap(
+  list(
+    pollen_full,
+    aggregation,
+    c("2019-05-31", "2019-04-25", "2019-04-22")
+  ),
+  function(first, second, third, fourth) {
+    gg_time1 <- first %>%
+      group_by(trap) %>%
+      mutate(mean = mean(conc, na.rm = TRUE)) %>%
+      left_join(
+        first %>%
+          filter(trap == "hirst") %>%
+          group_by(trap) %>%
+          mutate(mean = mean(conc)) %>%
+          ungroup() %>%
+          select(date, mean_hirst = mean),
+        by = "date"
+      ) %>%
+      mutate(conc = conc / mean * mean_hirst) %>%
+      pad(
+        start_val = min(first %>% pull(datetime)),
+        end_val = max(first %>% pull(datetime)),
+        group = c("trap"),
+        by = "datetime"
+      ) %>%
+      filter(date < date(third)) %>%
+      ggplot(aes(x = datetime)) +
+      geom_line(aes(y = conc, col = trap), alpha = 0.8) +
+      labs(y = "Mean Conc. [Pollen/m³]", x = "") +
+      ggtitle(paste0(
+        "Timeseries of ",
+        tools::toTitleCase(second),
+        " Total Pollen Concentrations"
+      )) +
+      scale_color_manual(values = traps_cols)
 
-  gg_time2 <- first %>%
-    filter(!(trap %in% c("hirst", "hund", "KHA"))) %>%
-    pad(
-      start_val = min(first %>% pull(datetime)),
-      end_val = max(first %>% pull(datetime)),
-      group = c("trap"),
-      by = "datetime"
-    ) %>%
-    ggplot(aes(x = datetime)) +
-    geom_line(aes(y = conc, col = trap), alpha = 0.8) +
-    labs(y = "Mean Conc. [Pollen/m³]", x = "") +
-    scale_color_manual(values = traps_cols) +
-    coord_cartesian(y = c(0, 1500))
-
-  gg_time12 <- ggarrange(gg_time1, gg_time2, ncol = 1)
-
-  ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
-    gg_time12,
-    width = 12, height = 9, dpi = 300
-  )
-  gg_time12
-})
+    ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
+      gg_time1,
+      width = 12, height = 9, dpi = 300
+    )
+    gg_time1
+  }
+)
 ```
 
 Looking at the boxplots we can see how the spread in the measurements increases with higher temporal resolution; especially for Hirst.
@@ -331,7 +336,8 @@ map2(pollen, aggregation, function(first, second) {
       " Total Pollen Concentrations"
     )) +
     theme(legend.position = "bottom") +
-    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+    coord_cartesian(ylim = c(0, 3))
 
   ggsave(paste0(here(), "/figures/fig2_boxplot_", second, ".png"),
     gg_box1,
@@ -427,7 +433,7 @@ errors <- map(pollen, ~ .x %>%
   map(~ .x %>%
     select(datetime, date, hour, mean, all_of(traps_names)) %>%
     pivot_longer(hirst:wibs, names_to = "trap", values_to = "conc") %>%
-    mutate(reldiff = conc / mean,
+    mutate(reldiff = (conc - mean) / mean,
            trap = factor(trap, levels = traps_names)) %>%
     filter(mean > 10))
   
@@ -465,7 +471,7 @@ map2(errors, aggregation, function(first, second) {
     theme(legend.position = "bottom") +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    coord_cartesian(ylim = c(0, 4))
+    coord_cartesian(ylim = c(-1, 3))
 
   ggsave(paste0(here(), "/figures/fig4_relerror_boxplot_", second, ".png"),
     gg_errors1,
@@ -808,7 +814,7 @@ corr_tb <- map(corr_matrix, ~ .x %>%
       wibs = NA_real_
     )) %>%
   map(~ .x %>%
-    select(trap, traps_names) %>%
+    select(trap, all_of(traps_names)) %>%
     arrange(trap))
 
 ```
