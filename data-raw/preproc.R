@@ -25,11 +25,13 @@ pollen_raw <-
     na = "nan"
   ) %>%
     setNames(c("datetime", "conc")) %>%
-    mutate(trap = .x %>%
-      stri_extract_last_regex("/[:alnum:]*") %>%
-      str_replace("/", ""),
+    mutate(
+      trap = .x %>%
+        stri_extract_last_regex("/[:alnum:]*") %>%
+        str_replace("/", ""),
       date = date(datetime),
-      hour = hour(datetime))) %>%
+      hour = hour(datetime)
+    )) %>%
     bind_rows() %>%
     select(datetime, date, hour, conc, trap)) %>%
   setNames(aggregation)
@@ -59,25 +61,39 @@ sixhour <- pollen_raw$hourly %>%
   )) %>%
   select(datetime, date, hour, conc, trap) %>%
   bind_rows(pollen_raw[["sixhour"]])
-  
+
 daily <- pollen_raw$hourly %>%
   group_by(trap, date) %>%
   summarise(conc = mean(conc)) %>%
   ungroup() %>%
-  mutate(datetime = as_datetime(date),
-         hour = 0) %>%
+  mutate(
+    datetime = as_datetime(date),
+    hour = 0
+  ) %>%
   select(datetime, date, hour, conc, trap) %>%
   bind_rows(pollen_raw[["daily"]])
 
-pollen <- list(daily = daily,
-               sixhour = sixhour,
-               hourly = pollen_raw[["hourly"]]) %>%
+pollen_full <- list(
+  daily = daily,
+  sixhour = sixhour,
+  hourly = pollen_raw[["hourly"]]
+) %>%
   map(~ .x %>%
     filter(between(
       datetime,
       # During this period all traps have measured
       as_datetime("2019-04-19 00:00:00"),
-      as_datetime("2019-05-31 23:00:00")),
+      as_datetime("2019-05-31 23:00:00")
+    )) %>%
+    # This is our standard to compare agains - sucking rate adjusted mean hirst
+    pivot_wider(names_from = trap, values_from = conc) %>%
+    mutate(hirst = (hirst1 + hirst2) / 2 / 1.35) %>%
+    select(-hirst1, -hirst2) %>%
+    pivot_longer(KHA:hirst, names_to = "trap", values_to = "conc"))
+
+pollen <- pollen_full %>%
+  map(~ .x %>%
+    filter(
       !(date %in% c(
         # Here Poleno was undergoing calibration (values NA)
         date("2019-05-13"),
@@ -85,17 +101,20 @@ pollen <- list(daily = daily,
         date("2019-05-15"),
         date("2019-05-16"),
         date("2019-05-26"),
-        date("2019-05-27")
+        date("2019-05-27"),
         # Here Rapide had a software issue (value provided in chunks)
-        # date("2019-04-23"),
-        # date("2019-04-24"),
-        # date("2019-04-25"),
+        date("2019-04-19"),
+        date("2019-04-22"),
+        date("2019-04-23"),
+        date("2019-04-24"),
+        date("2019-04-25"),
+        date("2019-04-26"),
+        date("2019-05-01"),
+        date("2019-05-07"),
+        date("2019-05-17"),
+        date("2019-05-24")
       ))
-    ) %>%
-    # This is our standard to compare agains - sucking rate adjusted mean hirst
-    pivot_wider(names_from = trap, values_from = conc) %>%
-    mutate(hirst = (hirst1 + hirst2) / 2 / 1.35) %>%
-    select(-hirst1, -hirst2) %>%
-    pivot_longer(KHA:hirst, names_to = "trap", values_to = "conc"))
+    ))
 
 usethis::use_data(pollen, overwrite = TRUE)
+usethis::use_data(pollen_full, overwrite = TRUE)
