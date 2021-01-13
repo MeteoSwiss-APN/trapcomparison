@@ -95,15 +95,29 @@ pollen <- pollen_full %>%
   map(~ .x %>%
     filter(
       !(date %in% c(
-        # Here Poleno was undergoing calibration (values NA)
+        # Here Poleno 1  was undergoing calibration
+        date("2019-04-20"),
+        date("2019-04-21"),
+        date("2019-04-22"),
+        date("2019-04-25"),
+        date("2019-04-29"),
+        date("2019-05-09"),
+        date("2019-05-10"),
+        date("2019-05-14"),
+        date("2019-05-15"),
+        date("2019-05-27"),
+        date("2019-05-31"),
+        # Here Poleno 1  was undergoing calibration
         date("2019-05-13"),
         date("2019-05-14"),
         date("2019-05-15"),
         date("2019-05-16"),
         date("2019-05-26"),
         date("2019-05-27"),
+        # Here Hirst2 has missing data
+        date("2019-04-23"),
+        date("2019-05-31"),
         # Here Rapide had a software issue (value provided in chunks)
-        date("2019-04-19"),
         date("2019-04-22"),
         date("2019-04-23"),
         date("2019-04-24"),
