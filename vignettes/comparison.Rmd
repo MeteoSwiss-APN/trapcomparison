@@ -46,24 +46,22 @@ library(RColorBrewer)
 library(padr)
 library(psych)
 library(nparcomp)
-
 library(conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("extract", "magrittr")
 
-devtools::load_all()
-
-# Due to old R-Version some packages must be installed from CRAN Archive,
-# in order to knit markdown documents.
+# If running with old R-Version some packages must be installed from CRAN Archive,
+# in order to knit markdown documents. Here for MCH-default 3.5.2
 # caTools@1.17.1.1
 # pbkrtest@0.4-7
 # nloptr@1.2.2
 # foreign@0.8-76
-# devtools@2.2.1
 # usethis@1.5.1
-# devtools@2.2.1
+
 ```
+
+
 
 # Data Import
 
