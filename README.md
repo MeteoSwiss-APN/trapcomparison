@@ -3,7 +3,7 @@ What is really in the air? An evaluation of multiple automatic pollen monitors
 Comparison of eight pollen monitors during the 2019 Blooming Season in Payerne CH
 
 # Setup
-The project is set up as a minimal R-package to assure maximum reproducibility.
+The project is set up as a minimal R-package to assure maximum reproducibility (https://r-pkgs.org/index.html).
 It is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 To install all packages needed in your local R-environment simply run: renv::restore() in your local clone of this git repo
 
@@ -54,6 +54,7 @@ The following eight traps are being compared:
 - WIBS (no hourly values)
 
 The raw-data is stored in the /raw-data folder and was preprocessed using the preproc.R script in there. The script will create the two data sets located in the /data folder.
+The data stored in /data is further documented in the /R folder.
 
 # Vignette comparison.Rmd - The Statistical Analysis
 Data preparation was carried out in R (R Core Team, 2021) using Tidyverse-packages (Wickham et al., 2019), with data obtained from the various traps in raw form and converted into hourly total pollen concentrations. Generally, each instrument in the analysis represents one measurement device, except for manual measurements, where data from the two Hirst-type traps were averaged to obtain a more robust reference against which the other devices were compared to. After an initial residual analysis, the measurements were converted into logarithmic concentrations for statistical comparison. Even the log-concentrations did not fulfil the assumption of standard statistical methods (i.e. assuming normality of errors with constant variance and mean zero). Hence robust statistical methods were applied. The Kruskal-Wallis test (Kruskal and Wallis, 1952) is considered a rank-based omnibus test, evaluating whether the variance among the different traps is greater than the unexplained variance (i.e. the variance within a dataset from a particular device). If the resulting explained variance is low, one can assume that the devices are similar. This omnibus test was then followed up by multiple pairwise tests between the instruments. The pairwise comparison and simultaneous confidence interval for the estimated effects was calculated using the nparcomp-package (Konietschke et al., 2015) with the Dunnet method; where the Hirst-mean was chosen as the reference level. The resulting estimator can be interpreted as a proxy for the relative difference in median between two devices. If the estimator is > 0.5 then the second device tends to have higher values. The null hypothesis H0: p = 0.5 is assessed on an α = 5 %-level. The lower and upperbounds denote the confidence interval of the estimator.
