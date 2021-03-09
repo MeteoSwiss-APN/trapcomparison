@@ -1,13 +1,13 @@
-Package: trapcomparison
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person(given = "First",
-           family = "Last",
-           role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: What license it uses
+Package: Trapcomparison
+Title: What is really in the air? An evaluation of multiple automatic pollen monitors
+Version: 1.0
+Authors@R: c(
+    person("Simon", "Adamov", role = c("aut", "cre"), email = "simon.adamov@mailbox.org"), 
+    person("MeteoSwiss", role = "cph"))
+Description: A statistical comparison of various pollen monitors
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 7.1.1
+License: MIT + file LICENSE
+Depends: 
+    R (>= 2.10)

@@ -1,5 +1,5 @@
 ---
-title: "Comparison of Pollen Traps"
+title: "What is really in the air? An evaluation of multiple automatic pollen monitors"
 subtitle: "Evaluation of Similarity and Robustness of Eight Pollen Traps Located in Payerne During the Blooming Season 2019"
 author: "Simon Adamov"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
@@ -29,8 +29,6 @@ knitr::opts_chunk$set(
   out.width = "100%",
   out.height = "100%"
 )
-# This project is using renv dependency management, for more info:
-# https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 
 library(caTools)
 library(httpgd)
@@ -46,29 +44,19 @@ library(RColorBrewer)
 library(padr)
 library(psych)
 library(nparcomp)
-
 library(conflicted)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("extract", "magrittr")
 
-devtools::load_all()
-
-# Due to old R-Version some packages must be installed from CRAN Archive,
-# in order to knit markdown documents.
-# caTools@1.17.1.1
-# pbkrtest@0.4-7
-# nloptr@1.2.2
-# foreign@0.8-76
-# devtools@2.2.1
-# usethis@1.5.1
-# devtools@2.2.1
 ```
+
+
 
 # Data Import
 
-The data was prepared by Fiona Tummon and stored in the /data-raw Folder.
-Eight different Pollen Traps were situated on the roof in Payerne and continously measured pollen 
+The data was prepared by Fiona Tummon (main author of paper) and stored in the /data-raw Folder.
+Nine different Pollen Traps were situated on the roof in Payerne and continuously measured pollen 
 grains between 19.04.2019 - 31.05.2019.
 For the sake of simplicity we only look at concentrations of total pollen (i.e. the sum of all pollen taxa).
 The concentrations were temporally averaged to obtain three different timeseries:
@@ -79,11 +67,14 @@ The concentrations were temporally averaged to obtain three different timeseries
 
 The preprocessed data is available to the reader in the /data folder. 
 In /data-raw/preproc.R the preprocessing is documented.
-The data has missing values in the Poleno and RapidE timeseries. For Poleno calibration was carried out on 6 days in May.
-For RapidE software mulfunctioned (it seems) during 7 days, as discussed with MDS.
-These full 13 days were excluded from the analysis for all traps and temporal resolutions.
-The whole analysis is based on the data exlcuding these 13 days, except for the timeseries plot (figure 1).
-For the timeseries the full timeseries are used, which includes NAs for Poleno and Rapid-E.
+The data has missing values in the Hirst2, Poleno(1 and 3) and RapidE timeseries. 
+To be as conservative as possible all dates with missing pollen measurements were removed.
+For Poleno1 calibration was carried out on 11 days.
+For Poleno3 calibration was carried out on 6 days.
+For RapidE software malfunctioned (it seems) during 9 days, as discussed with MDS.
+These full 21 unique days were excluded from the analysis for all traps and temporal resolutions.
+The whole analysis is based on the data excluding these 21 days, except for the timeseries plot (figure 1).
+For the timeseries the full timeseries are displayed, which includes NAs for Poleno; Hirst and Rapid-E.
 
 The following eight traps are being compared:
 
@@ -91,13 +82,16 @@ The following eight traps are being compared:
 - Hund (no hourly values)
 - KH-A
 - KH-B
-- Poleno
+- Poleno 1
+- Poleno 3
 - Rapide
 - WIBS (no hourly values)
 
 
 ```{r data}
+# The data without calibration days
 load(paste0(here(), "/data/pollen.rda"))
+# The data with calibration days for the timeseries plot
 load(paste0(here(), "/data/pollen_full.rda"))
 aggregation <- c("daily", "sixhour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
@@ -123,7 +117,7 @@ number_of_measurements <- map(pollen, ~ .x %>%
 timesteps <- map(number_of_measurements, ~ .x %>% nrow())
 
 kable_ntraps <- pmap(
-  list(number_of_measurements, aggregation, c(7, 7, 5)),
+  list(number_of_measurements, aggregation, c(8, 8, 6)),
   function(first, second, third) {
     first %>%
       count(ntraps) %>%
@@ -163,7 +157,7 @@ over the study period. (Mandrioli et al., 1998).
 These metrics are well-known and a standard part of any Pollen Measurement study. It is common to investigate 
 individual pollen species during their blooming period. 
 Here we are calculating them for total pollen, which might not be as meaningful, but can function as a 
-crude mechanism of comparison.
+crude mean for comparison.
 
 ```{r daily_tables}
 pol_occurence <- pollen$daily %>%
@@ -248,14 +242,14 @@ kable_variability
 ```
 
 Setting a coarser temporal resolution reduces the variability in the measurements.
-The coefficient of variation (CV) for Rapide is very large. 
-On the other side of the spectrum, poleno has the lowest spread in the measurements.
+The coefficient of variation (CV) for the Polenos is the largest in the study. 
+On the other side of the spectrum, RapidE has the lowest spread in the measurements.
 
 # Some Plots
 
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
-traps_cols <- RColorBrewer::brewer.pal(7, "Set2")[c(1, 7, 4, 6, 2, 3, 5)]
+traps_cols <- c("#252424", RColorBrewer::brewer.pal(8, "Set2")[c(7, 4, 6, 2, 3, 5, 1)])
 traps_names <- pollen$daily$trap %>%
   unique() %>%
   sort()
@@ -265,12 +259,10 @@ names(traps_cols) <- traps_names
 ## Timeseries
 
 The differences between the traps are quite substantial looking at these timeseries. 
-For higher temporal resolution rapide, KH and Hirst show some peaks, 
-that might be a data issue (especially true for rapide).
-Most traps were able to identify days with higher pollen occurence, 
+Most traps were able to identify days with higher pollen occurrence, 
 but the performance varies a lot (maybe also species dependent).
 The concentrations are scaled here to match Hirst (conc / mean(trap_i) * mean(trap_hirst)).
-Whereas the mean was calculated across the full period.
+Where the mean for each trap was calculated across the all days of the study.
 
 
 ```{r timeseries}
@@ -288,7 +280,7 @@ pmap(
         first %>%
           filter(trap == "hirst") %>%
           group_by(trap) %>%
-          mutate(mean = mean(conc)) %>%
+          mutate(mean = mean(conc, na.rm = TRUE)) %>%
           ungroup() %>%
           select(date, mean_hirst = mean),
         by = "date"
@@ -402,12 +394,11 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
 
 # Relative Errors
 
-Looking at (absolute) relative differences between Hirst and the other traps, 
+Looking at absolute relative differences between Hirst and the other traps, 
 one can investigate which traps diverge the most from the historically used Hirst traps.
 The general findings seem to persist across different temporal resolutions.
-It is common to exclude measurements above a 10 pollengrains per m^3 threshold.
-Hirst often measures 0 pollen grains, as the measured concentrations 
-by this device are of discrete nature for low concentrations.
+It is common to exclude measurements below a 10 pollen grains per m^3 threshold,
+because of the large uncertainty of these low concentration measurements.
 
 ```{r errordata}
 
@@ -483,16 +474,17 @@ map2(errors, aggregation, function(first, second) {
 
 The spread in the measurement seems to correlate with the total pollen concentrations.
 For lower concentrations Poleno and Hund are measuring more then the Hirst (better capture?).
-KHB, Wibs and Rapide are consitently measuring less pollen than the other traps in the study.
+KHB, Wibs and Rapide are consistently measuring less pollen than the other traps in the study.
 Be careful, these are log scales, as the differences can become very large. 
 A value of 1 on the y axis reflects a 10x larger value for that trap compared to Hirst.
+
 ```{r concerrors}
 map2(errors_conc, aggregation, function(first, second) {
   gg_conc1 <- first %>%
   filter(trap != "hirst") %>%
     ggplot(aes(y = log10(reldiff), fill = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Hirst Mean", x = "") +
+    labs(y = "Relative Difference from Hirst Mean (Log)", x = "") +
     scale_fill_manual(values = traps_cols) +
     ggtitle(paste0(
       "Boxplot of ",
@@ -557,14 +549,12 @@ save_kable(kable_error,
 )
 
 kable_error
-
 ```
 
 The density plots outline the behavior of all traps for different concentration categories 
 (based on the Hirst mean).
-KHB and Rapide stant out, usually measuring less than the others for concentrations below 300.
-Poleno further stand out with more pollen measured during periods of low concentrations, 
-and a sharp spike in the 300 conc_group.
+KHB and Rapide stand out, usually measuring less than the others for concentrations below 300.
+Poleno further stand out with more pollen measured during periods of low concentrations.
 
 ```{r concerror_kable}
 map2(errors_conc, aggregation, function(data, second) {
@@ -613,7 +603,7 @@ map2(errors_conc, aggregation, function(data, second) {
 
 # Resdiual Analysis
 
-Pollendata usually does not fulfil the assumption of ANOVA. We want to check this in the following.
+Pollen data usually does not fulfil the assumption of ANOIA. We want to check this in the following.
 
 - are the errors normally distributed?
 
@@ -831,10 +821,10 @@ kable_corr <-  corr_tb %>%
     full_width = FALSE,
     font_size = 20
   ) %>%
-  pack_rows("Daily", 1, 7, indent = FALSE) %>%
-  pack_rows("Six-Hour", 8, 14, indent = FALSE) %>%
-  pack_rows("Hourly", 15, 19, indent = FALSE) %>%
-  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 8))
+  pack_rows("Daily", 1, 8, indent = FALSE) %>%
+  pack_rows("Six-Hour", 9, 16, indent = FALSE) %>%
+  pack_rows("Hourly", 17, 22, indent = FALSE) %>%
+  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 9))
 
 save_kable(kable_corr,
   file = paste0(here(), "/tables/table5_correlation.html")
@@ -861,24 +851,6 @@ The test is generally considered to be robust to ties. However, if ties are pres
 together in one part of the distribution (they should have either a normal or uniform distribution)
 https://influentialpoints.com/Training/kruskal-wallis_anova-principles-properties-assumptions.htm
 
-The Wilcoxon signed-rank test assumes that the data are distributed symmetrically around the median. 
-In other words, there should be roughly the same number of 
-values above and below the median. This can be checked by visual inspection using histogram or density estimators
-
-```{r assumption, include = FALSE}
-
-map(pollen_10_log, ~ .x %>%
-  ggplot(aes(x = conc)) +
-  geom_histogram(alpha = 0.7, bins = 50, fill = traps_cols[4]) +
-  geom_vline(
-    xintercept = median(.x %>% pull(conc),
-      na.rm = TRUE
-    ),
-    col = traps_cols[6]
-  ) +
-  ggtitle("Histogram of the Transformed Data With the Median (Grey Line)"))
-```
-
 ```{r kruskal}
 map(pollen_10_log, function(first) {
   kruskal.test(conc ~ trap,
@@ -888,7 +860,8 @@ map(pollen_10_log, function(first) {
 })
 
 ```
-The Null-Hypothesis that the median of all traps are equal can clearly be rejected. If that was not already clearly shown by the plots :-)
+
+The Null-Hypothesis that the median of all traps are equal can clearly be rejected.
 
 # Robust Contrasts with Confidence Intervals
 
