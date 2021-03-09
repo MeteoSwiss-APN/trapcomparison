@@ -1,5 +1,7 @@
 source("renv/activate.R")
 
+
+# The following code optimizes workflow in VSCode
 Sys.setenv(TERM_PROGRAM = "vscode")
 
 source(file.path(
@@ -47,3 +49,5 @@ options(error = function() {
     q(status = 1)
   }
 })
+
+library(languageserver)
