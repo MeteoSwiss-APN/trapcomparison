@@ -8,8 +8,8 @@ Comparison of eight pollen monitors during the 2019 Blooming Season in Payerne C
 The project is set up as a minimal R-package to assure maximum reproducibility.
 It is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 
-If running with old R-Version some packages must be installed from CRAN Archive,in order to knit markdown documents. Here for MeteoSwiss-default R-3.5.2:
-
+The analysis was conducted in R-4.0.3.
+If running and old R-Version some packages must be installed from CRAN Archive. Here for MeteoSwiss-default R-3.5.2:
   - caTools@1.17.1.1
   - pbkrtest@0.4-7
   - nloptr@1.2.2
