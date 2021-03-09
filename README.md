@@ -1,6 +1,5 @@
 # Trapcomparison
 What is really in the air? An evaluation of multiple automatic pollen monitors
-Comparison of eight pollen monitors during the 2019 Blooming Season in Payerne CH
 
 # Setup
 The project is set up as a minimal R-package to assure maximum reproducibility (https://r-pkgs.org/index.html).
