@@ -249,7 +249,7 @@ On the other side of the spectrum, RapidE has the lowest spread in the measureme
 
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
-traps_cols <- RColorBrewer::brewer.pal(8, "Set2")[c(1, 7, 4, 6, 2, 3, 5, 8)]
+traps_cols <- c("#252424", RColorBrewer::brewer.pal(8, "Set2")[c(7, 4, 6, 2, 3, 5, 1)])
 traps_names <- pollen$daily$trap %>%
   unique() %>%
   sort()
