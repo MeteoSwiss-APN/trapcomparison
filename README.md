@@ -1,31 +1,28 @@
 # Trapcomparison
-
 What is really in the air? An evaluation of multiple automatic pollen monitors
 Comparison of eight pollen monitors during the 2019 Blooming Season in Payerne CH
 
 # Setup
-
 The project is set up as a minimal R-package to assure maximum reproducibility.
 It is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
 To install all packages needed in your local R-environment simply run: renv::restore() in your local clone of this git repo
 
 The analysis was conducted in R-4.0.3.
 If running and old R-Version some packages must be installed from CRAN Archive. Here for MeteoSwiss-default R-3.5.2:
-  - caTools@1.17.1.1
-  - pbkrtest@0.4-7
-  - nloptr@1.2.2
-  - foreign@0.8-76
-  - usethis@1.5.1
+ - caTools@1.17.1.1
+ - pbkrtest@0.4-7
+ - nloptr@1.2.2
+ - foreign@0.8-76
+ - usethis@1.5.1
 
 The .RProfile is optimized for an interactive session in VSCode. Feel free to uncomment the respective lines if working in VS-Code.
 
 # Branches
 There are currently two branches:
-  - Main: The status of the analysis when the paper was published
-  - Develop: A branch for later updates to source code
+ - Main: The status of the analysis when the paper was published
+ - Develop: A branch for later updates to source code
 
 # Data
-
 The data was prepared by Fiona Tummon (main author of paper) and stored in the /data-raw Folder.
 Nine different Pollen Traps were situated on the roof in Payerne and continuously measured pollen 
 grains between 19.04.2019 - 31.05.2019.
@@ -56,9 +53,9 @@ The following eight traps are being compared:
 - Rapide
 - WIBS (no hourly values)
 
-# Analysis
-Data  preparation  was  carried  out  in  R  (R  Core  Team,  2021)  using  Tidyverse-packages  (Wickham  et  al.,  2019),  with  data  obtained  from  the  various  traps  inraw form and converted into hourly total pollen concentrations. These hourly con-centrations were further aggregated into 6-hourly and daily averages to investigatedifferences between devices depending on averaging window. Malfunction or main-tenance of all devices was logged and to ensure a fair evaluation of all instrumentsthese data points were removed from the time series. In total, 21 of the 43 dayswere removed from the data set, however, for the time-series plots (e.g. Figure 1),all 43 days are shown; periods with no data are shown as gaps in the timeseries.All other figures, tables, and statistical evaluations are based on the reduced dataset spanning 21 days of measurements. Generally, each instrument in the analysisrepresents one measurement device, except for manual measurements, where datafrom  the  two  Hirst-type  traps  were  averaged  to  obtain  a  more  robust  referenceagainst which the other devices were compared.After an initial residual analysis, the measurements were converted into loga-rithmic concentrations for statistical comparison. Even the log-concentrations didnot fulfil the assumption of standard statistical methods (i.e. assuming normalityof errors with constant variance and mean zero). Hence robust statistical methodswere  applied.  The  Kruskal-Wallis  test  (Kruskal  and  Wallis,  1952)  is  considereda rank-based omnibus test, evaluating whether the variance among the differenttraps  is  greater  than  the  unexplained  variance  (i.e.  the  variance  within  a  data
-6Fiona Tummon et al.Table 1Measurement frequency for the various temporal resolutions investigated.Temporal ResolutionNumber InstrumentsMeasurement FrequencyDaily8/8100%6/81.1%6-hourly7/811.4%8/887.5%3/60.2%Hourly4/62.3%5/621.2%6/676.3%set from a particular device). If the resulting explained variance is low, one canassume that the devices are similar. This omnibus test was then followed up bymultiple pairwise tests between the instruments. The pairwise comparison and si-multaneous confidence interval for the estimated effects was calculated using thenparcomp-package (Konietschke et al., 2015) with the Dunnet method; where theHirst-mean was chosen as the reference level. The resulting estimator can be in-terpreted as a proxy for the relative difference in median between two devices. Ifthe estimator is>0.5 then the second device tends to have higher values. Thenull hypothesis H0: p = 0.5 is assessed on anα= 5 %-level. The lower and upperbounds denote the confidence interval of the estimator.
+# Vignette comparison.Rmd - The Statistical Analysis
+Data preparation was carried out in R (R Core Team, 2021) using Tidyverse-packages (Wickham et al., 2019), with data obtained from the various traps in raw form and converted into hourly total pollen concentrations. Generally, each instrument in the analysis represents one measurement device, except for manual measurements, where data from the two Hirst-type traps were averaged to obtain a more robust reference against which the other devices were compared to. After an initial residual analysis, the measurements were converted into logarithmic concentrations for statistical comparison. Even the log-concentrations did not fulfil the assumption of standard statistical methods (i.e. assuming normality of errors with constant variance and mean zero). Hence robust statistical methods were applied. The Kruskal-Wallis test (Kruskal and Wallis, 1952) is considered a rank-based omnibus test, evaluating whether the variance among the different traps is greater than the unexplained variance (i.e. the variance within a dataset from a particular device). If the resulting explained variance is low, one can assume that the devices are similar. This omnibus test was then followed up by multiple pairwise tests between the instruments. The pairwise comparison and simultaneous confidence interval for the estimated effects was calculated using the nparcomp-package (Konietschke et al., 2015) with the Dunnet method; where the Hirst-mean was chosen as the reference level. The resulting estimator can be interpreted as a proxy for the relative difference in median between two devices. If the estimator is > 0.5 then the second device tends to have higher values. The null hypothesis H0: p = 0.5 is assessed on an α = 5 %-level. The lower and upperbounds denote the confidence interval of the estimator.
 
+The vignette can be knitted into any format (e.g. pdf or html), or investigated as-is.
 
 
