@@ -548,7 +548,6 @@ save_kable(kable_error,
 )
 
 kable_error
-
 ```
 
 The density plots outline the behavior of all traps for different concentration categories 

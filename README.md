@@ -4,9 +4,9 @@ What is really in the air? An evaluation of multiple automatic pollen monitors
 # Setup
 The project is set up as a minimal R-package to assure maximum reproducibility (https://r-pkgs.org/index.html).
 It is using renv dependency management, for more info: https://cran.r-project.org/web/packages/renv/vignettes/renv.html
-To install all packages needed in your local R-environment simply run: renv::restore() in your local clone of this git repo
+To install all packages needed in your local R-environment simply run: `renv::restore()` in your local clone of this git repo
 
-Packages installed by renv might depend on some shared libraries not available on the reader's system. For that reason we added the environment YAML file of our conda environment to this repo. Be aware that some libraries in there are not required for this project (it is the default env we use for R analyses).
+Packages installed by renv might depend on some shared libraries not available on the reader's system. For that reason we added the environment YAML file of our conda environment to this repo. Be aware that some libraries in there are not required for this project (it is the default env we use for R analyses). This command would install the required libraries in a new conda env: `conda env create -n new_env -f environment.yml`
 
 The analysis was conducted in R-4.0.3.
 If running and old R-Version some packages must be installed from CRAN Archive. Here for MeteoSwiss-default R-3.5.2:
