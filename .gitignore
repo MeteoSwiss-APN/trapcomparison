@@ -4,3 +4,7 @@ tables/*
 vignettes/test.r
 vignettes/comparison.tex
 vignettes/comparison.log
+.gitignore
+vignettes/comparison.Rmd
+Rplots.pdf
+
