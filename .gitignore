@@ -1,3 +1,7 @@
 vignettes/comparison.html
 vignettes/comparison.tex
 vignettes/comparison.log
+.gitignore
+vignettes/comparison.Rmd
+Rplots.pdf
+

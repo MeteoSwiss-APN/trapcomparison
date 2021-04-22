@@ -85,7 +85,7 @@ The following eight traps are being compared:
 - Poleno 1
 - Poleno 3
 - Rapide
-- WIBS (no hourly values)
+- WIBS
 
 
 ```{r data}
@@ -117,7 +117,7 @@ number_of_measurements <- map(pollen, ~ .x %>%
 timesteps <- map(number_of_measurements, ~ .x %>% nrow())
 
 kable_ntraps <- pmap(
-  list(number_of_measurements, aggregation, c(8, 8, 6)),
+  list(number_of_measurements, aggregation, c(8, 8, 7)),
   function(first, second, third) {
     first %>%
       count(ntraps) %>%
@@ -262,7 +262,7 @@ The differences between the traps are quite substantial looking at these timeser
 Most traps were able to identify days with higher pollen occurrence, 
 but the performance varies a lot (maybe also species dependent).
 The concentrations are scaled here to match Hirst (conc / mean(trap_i) * mean(trap_hirst)).
-Where the mean for each trap was calculated across the all days of the study.
+Where the mean for each trap was calculated across all days of the study.
 
 
 ```{r timeseries}
@@ -345,7 +345,7 @@ Hirst Traps and Manual Counting.
 
 ```{r histogram}
 
-label_xy <- c(6, 21, 175)
+label_xy <- c(6, 20, 250)
 
 pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
   sd_comp <- first %>%
@@ -366,7 +366,7 @@ pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
           "Pollen / m³"
         ),
         x = third,
-        y = 0.7, group = trap
+        y = 1, group = trap
       ), size = 3
     ) +
     facet_wrap(vars(trap), ncol = 3) +
@@ -418,8 +418,7 @@ errors <- map(pollen, ~ .x %>%
   mutate(mean = hirst)) %>%
   map_at(3, ~ .x %>%
     mutate(
-      hund = NA_real_,
-      wibs = NA_real_
+      hund = NA_real_
     )) %>%
   map(~ .x %>%
     select(datetime, date, hour, mean, all_of(traps_names)) %>%
@@ -441,7 +440,7 @@ errors_conc <- map(errors, ~ .x %>%
 
 ```
 
-The relative differences from the Hirst mean are substantial, Hund and Poleno measure more pollen than Hirst; Wibs, KHB and Rapide measure less. 
+The relative differences from the Hirst mean are substantial, Hund and Poleno measure more pollen than Hirst; KHB, Wibs and Rapide measure less. 
 For higher temporal Resolutions the differences become larger. Please note that some outliers (black dots) were cut off, reaching up to almost 5000%.
 This does not mean that they measure worse than the rest. There is no golden standard in measuring pollen.
 
@@ -460,7 +459,6 @@ map2(errors, aggregation, function(first, second) {
       " Measurement Differences from Hirst"
     )) +
     theme(legend.position = "bottom") +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
     coord_cartesian(ylim = c(0, 3))
 
@@ -510,7 +508,7 @@ The table shows the relative differences from Hirst for all traps combined.
 ```{r relerror_kable}
 
 kable_error <- map(errors_conc, ~.x %>%
-  na.omit() %>% # We introduced NAs for hund and wibs for nicer plots above.
+  na.omit() %>% # We introduced NAs for hund for nicer plots above.
   group_by(group) %>%
   summarise(
     mean = mean(reldiff),
@@ -588,7 +586,7 @@ map2(errors_conc, aggregation, function(data, second) {
         second,
         "Total Pollen Measurements"
       ),
-      size = 16
+      size = 20
       )
     )
 
@@ -800,8 +798,7 @@ corr_tb <- map(corr_matrix, ~ .x %>%
   mutate(trap = rownames(.x))) %>%
   map_at(c(2, 3), ~ .x %>%
     mutate(
-      hund = NA_real_,
-      wibs = NA_real_
+      hund = NA_real_
     )) %>%
   map(~ .x %>%
     select(trap, all_of(traps_names)) %>%
@@ -814,7 +811,7 @@ corr_tb <- map(corr_matrix, ~ .x %>%
 kable_corr <-  corr_tb %>%
   bind_rows() %>%
   mutate(across(where(is.numeric), round, 2)) %>%
-  mutate(across(c(hund, wibs), replace_na, "-")) %>%
+  mutate(across(hund, replace_na, "-")) %>%
   setNames(c("", traps_names)) %>%
   kable(escape = FALSE) %>%
   kable_styling(c("striped", "condensed"),
