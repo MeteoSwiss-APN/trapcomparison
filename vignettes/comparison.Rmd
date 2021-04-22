@@ -345,7 +345,7 @@ Hirst Traps and Manual Counting.
 
 ```{r histogram}
 
-label_xy <- c(6, 20, 100)
+label_xy <- c(6, 20, 250)
 
 pmap(list(pollen, aggregation, label_xy), function(first, second, third) {
   sd_comp <- first %>%
@@ -440,7 +440,7 @@ errors_conc <- map(errors, ~ .x %>%
 
 ```
 
-The relative differences from the Hirst mean are substantial, Hund, Wibs and Poleno measure more pollen than Hirst; KHB and Rapide measure less. 
+The relative differences from the Hirst mean are substantial, Hund and Poleno measure more pollen than Hirst; KHB, Wibs and Rapide measure less. 
 For higher temporal Resolutions the differences become larger. Please note that some outliers (black dots) were cut off, reaching up to almost 5000%.
 This does not mean that they measure worse than the rest. There is no golden standard in measuring pollen.
 
@@ -449,9 +449,9 @@ This does not mean that they measure worse than the rest. There is no golden sta
 map2(errors, aggregation, function(first, second) {
   gg_errors1 <- first %>%
     filter(trap != "hirst") %>%
-    ggplot(aes(y = log10(reldiff), fill = trap)) +
+    ggplot(aes(y = reldiff, fill = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Hirst (Log)", x = "") +
+    labs(y = "Relative Difference from Hirst", x = "") +
     scale_fill_manual(values = traps_cols) +
     ggtitle(paste0(
       "Boxplot of ",
@@ -459,9 +459,8 @@ map2(errors, aggregation, function(first, second) {
       " Measurement Differences from Hirst"
     )) +
     theme(legend.position = "bottom") +
-    annotation_logticks(sides = "l") +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    coord_cartesian(ylim = c(-1.5, 1.5))
+    coord_cartesian(ylim = c(0, 3))
 
   ggsave(paste0(here(), "/figures/fig4_relerror_boxplot_", second, ".png"),
     gg_errors1,
@@ -509,7 +508,7 @@ The table shows the relative differences from Hirst for all traps combined.
 ```{r relerror_kable}
 
 kable_error <- map(errors_conc, ~.x %>%
-  na.omit() %>% # We introduced NAs for hund and wibs for nicer plots above.
+  na.omit() %>% # We introduced NAs for hund for nicer plots above.
   group_by(group) %>%
   summarise(
     mean = mean(reldiff),
