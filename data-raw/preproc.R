@@ -73,7 +73,7 @@ sixhour <- pollen_raw$hourly %>%
 daily <- pollen_raw$hourly %>%
   group_by(trap, date) %>%
   mutate(missing_values = sum(is.na(conc))) %>%
-  summarise(conc = if_else(sum(is.na(conc)) <= 5,
+  summarise(conc = if_else(sum(is.na(conc)) <= 4,
     mean(conc, na.rm = TRUE),
     NA_real_
   )) %>%
@@ -86,7 +86,7 @@ daily <- pollen_raw$hourly %>%
   bind_rows(pollen_raw[["daily"]])
 
 
-pollen_full <- list(
+pollen_full_with_hirst <- list(
   daily = daily,
   sixhour = sixhour,
   hourly = pollen_raw[["hourly"]]
@@ -104,10 +104,12 @@ pollen_full <- list(
     # Internal evaluation found that on average the sucking rate is higher
     # than described by the manufacturer
     mutate(hirst = (hirst1 + hirst2) / 2 / 1.35) %>%
-    select(-hirst1, -hirst2) %>%
     pivot_longer(wibs:hirst, names_to = "trap", values_to = "conc") %>%
     arrange(trap))
 
+
+pollen_full <- map(pollen_full_with_hirst, ~.x %>%
+  filter(!trap %in% c("hirst1", "hirst2")))
 # # To be very conservative, days with calibration events
 # # have been excluded for all traps. 2019 was the year of
 # # initial deployment, hence there are quite a few days to be excluded.
@@ -167,3 +169,4 @@ pollen <- map(pollen_full, ~.x %>%
 
 usethis::use_data(pollen, overwrite = TRUE)
 usethis::use_data(pollen_full, overwrite = TRUE)
+usethis::use_data(pollen_full_with_hirst, overwrite = TRUE)
