@@ -338,17 +338,19 @@ pmap(
     aggregation,
     c("2019-05-31", "2019-05-01", "2019-04-25")
   ),
-  function(first, second, third, fourth) {
+  function(first, second, third) {
     gg_time1 <- first %>%
       group_by(trap) %>%
       mutate(mean = mean(conc, na.rm = TRUE)) %>%
+      ungroup() %>%
       left_join(
         first %>%
           filter(trap %in% c("Hirst1", "Hirst2")) %>%
           group_by(datetime) %>%
-          mutate(mean = mean(conc, na.rm = TRUE)) %>%
+          mutate(Hirst = mean(conc, na.rm = TRUE)) %>%
           ungroup() %>%
-          select(datetime, mean_hirst = mean),
+          mutate(mean_hirst = mean(Hirst)) %>%
+          select(datetime, mean_hirst),
         by = "datetime"
       ) %>%
       mutate(conc = conc / mean * mean_hirst) %>%
@@ -358,8 +360,7 @@ pmap(
         group = c("trap"),
         by = "datetime"
       ) %>%
-      filter(date < date(third),
-             trap != "Hirst") %>%
+      filter(date < date(third)) %>%
       ggplot(aes(x = datetime)) +
       geom_line(aes(y = conc, col = trap, lty = trap), size = 1, alpha = 0.6) +
       labs(y = "Mean Conc. [Pollen/m³]", x = "") +
