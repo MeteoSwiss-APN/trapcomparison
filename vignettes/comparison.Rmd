@@ -308,24 +308,17 @@ On the other side of the spectrum, RapidE has the lowest spread in the measureme
 # Some Plots
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
-traps_cols <- c("#E5C494", "#252424", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
-traps_names <- pollen$daily$trap %>%
-  unique() %>%
-  sort()
+traps_names <- levels(pollen$daily$trap)
+traps_cols <- c("#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
 names(traps_cols) <- traps_names
 traps_lty <- c(1, 1, 1, 3, 1, 3, 1, 1)
 names(traps_lty) <- traps_names
 
 # For the timeseries plot we need one more color and lty (both hirst traps plotted)
-traps_cols_hirst <- c("#E5C494", "#353333", "#252424", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
-traps_names_hirst <- pollen_full_with_hirst$daily %>%
-  filter(trap != "Hirst") %>%
-  select(trap) %>%
-  unique() %>%
-  pull() %>%
-  sort()
+traps_cols_hirst <- c("#353333", "#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
+traps_names_hirst <- levels(pollen_full_with_hirst$daily$trap)
 names(traps_cols_hirst) <- traps_names_hirst
-traps_lty_hirst <- c(1, 1, 3, 1, 3, 1, 3, 1, 1)
+traps_lty_hirst <- c(1, 3, 1, 1, 3, 1, 3, 1, 1)
 names(traps_lty_hirst) <- traps_names_hirst
 ```
 ## Timeseries
@@ -351,12 +344,12 @@ pmap(
       mutate(mean = mean(conc, na.rm = TRUE)) %>%
       left_join(
         first %>%
-          filter(trap == "Hirst") %>%
-          group_by(trap) %>%
+          filter(trap %in% c("Hirst1", "Hirst2")) %>%
+          group_by(datetime) %>%
           mutate(mean = mean(conc, na.rm = TRUE)) %>%
           ungroup() %>%
-          select(date, mean_hirst = mean),
-        by = "date"
+          select(datetime, mean_hirst = mean),
+        by = "datetime"
       ) %>%
       mutate(conc = conc / mean * mean_hirst) %>%
       pad(
@@ -717,13 +710,13 @@ map2(pollen_10, pollen_10_log, function(first, second) {
 
   gg_res1 <- tibble(residuals = residuals(fit_anova, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
-    stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[2])
+    stat_qq(col = traps_cols[2]) +
+    stat_qq_line(col = traps_cols[1])
 
   gg_res2 <- tibble(residuals = residuals(fit_anova_log, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
-    stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[2])
+    stat_qq(col = traps_cols[2]) +
+    stat_qq_line(col = traps_cols[1])
 
   ggarrange(gg_res1, gg_res2, nrow = 1) %>%
     annotate_figure(top = paste(
@@ -764,10 +757,10 @@ map2(pollen_10, pollen_10_log, function(first, second) {
         width = 5,
         height = 0
       ),
-      col = traps_cols[1]
+      col = traps_cols[2]
     ) +
     # geom_smooth(method = "loess", col = traps_cols[4]) +
-    geom_abline(slope = 0, intercept = 0, col = traps_cols[2], alpha = 0.9) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[1], alpha = 0.9) +
     coord_cartesian(ylim = c(-500, 500))
 
   gg_tukey2 <-
@@ -781,9 +774,9 @@ map2(pollen_10, pollen_10_log, function(first, second) {
     geom_point(
       alpha = 0.5,
       position = position_jitter(width = 0.02, height = 0),
-      col = traps_cols[1]
+      col = traps_cols[2]
     ) +
-    geom_abline(slope = 0, intercept = 0, col = traps_cols[2], alpha = 0.9) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[1], alpha = 0.9) +
     coord_cartesian(ylim = c(-3, 3))
 
 
@@ -869,7 +862,7 @@ data_corr <- map(pollen_10, ~ .x %>%
 corr_matrix <- map(data_corr, ~ corr.test(
   .x %>% select(-datetime),
   use = "complete",
-  method = "pearson", # Requested by Reviewer, I do not agree as normality assumptions are not fulfiled
+  method = "spearman", # Requested by Reviewer, I do not agree as normality assumptions are not fulfiled
   adjust = "holm",
   alpha = .05,
   ci = TRUE,
@@ -908,9 +901,11 @@ kable_corr <-  corr_tb %>%
   add_header_above(c("Pearson R for Different Temporal Resolutions" = 9))
 
 save_kable(kable_corr,
-  file = paste0(here(), "/tables/table5_correlation_pearson.html")
+  file = paste0(here(), "/tables/table5_correlation_spearman.html")
 )
 kable_corr
+
+
 ```
 
 # Kruskal-Wallis Test / Omnibus Test
@@ -984,17 +979,12 @@ kable_nparcomp <- map2(pollen_10_log, aggregation, function(first, second) {
     add_header_above(myheader)
 })
 
-map(aggregation, function(first) {
-  save_kable(kable_nparcomp,
-    file = paste0(
-      here(),
-      "/tables/table6_nparcomp_",
-      first, ".html"
-    )
+save_kable(kable_nparcomp,
+  file = paste0(
+    here(),
+    "/tables/table6_nparcomp.html"
   )
-})
+)
 
-kable_nparcomp$daily
-kable_nparcomp$sixhour
-kable_nparcomp$hourly
+kable_nparcomp
 ```

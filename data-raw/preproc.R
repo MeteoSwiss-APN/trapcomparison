@@ -125,7 +125,31 @@ pollen <- map(pollen_full, ~.x %>%
   filter(!is.na(conc)) %>%
   arrange(trap))
 
-pollen <- map(pollen, ~.x %>% select(-set_na))
+# Ordering traps for optimal display in Plots and Tables
+traps_names <- pollen$daily$trap %>%
+  unique() %>%
+  sort()
+traps_names <- c(traps_names[traps_names == "Hirst"], traps_names[traps_names != "Hirst"])
+
+traps_names_hirst <- pollen_full_with_hirst$daily %>%
+  filter(trap != "Hirst") %>%
+  select(trap) %>%
+  unique() %>%
+  pull() %>%
+  sort()
+traps_names_hirst <- c(traps_names_hirst[traps_names_hirst %in% c("Hirst1", "Hirst2")], traps_names_hirst[!traps_names_hirst %in% c("Hirst1", "Hirst2")])
+
+
+pollen <- map(pollen, ~.x %>% 
+  select(-set_na) %>%
+  mutate(trap = factor(trap, levels = traps_names, ordered = TRUE)))
+
+pollen_full <- map(pollen_full, ~.x %>% 
+  mutate(trap = factor(trap, levels = traps_names, ordered = TRUE)))
+
+pollen_full_with_hirst <- map(pollen_full_with_hirst, ~.x %>% 
+  filter(trap != "Hirst") %>%
+  mutate(trap = factor(trap, levels = traps_names_hirst)))
 
 usethis::use_data(pollen, overwrite = TRUE)
 usethis::use_data(pollen_full, overwrite = TRUE)
