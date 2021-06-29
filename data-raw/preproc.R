@@ -103,7 +103,9 @@ pollen_full_with_hirst <- list(
     # The standard compare against - mean of 2 Hirst traps
     # Internal evaluation found that on average the sucking rate is higher
     # than described by the manufacturer
-    mutate(Hirst = (Hirst1 + Hirst2) / 2 / 1.35) %>%
+    mutate(Hirst1 = Hirst1 / 1.35,
+           Hirst2 = Hirst2 / 1.35,
+           Hirst = (Hirst1 + Hirst2) / 2) %>%
     pivot_longer("WIBS-NEO":Hirst, names_to = "trap", values_to = "conc") %>%
     arrange(trap))
 
