@@ -30,8 +30,8 @@ pollen_raw <-
     setNames(c("datetime", "conc")) %>%
     mutate(
       trap = .x %>%
-        stri_extract_last_regex("/[:alnum:]*") %>%
-        str_replace("/", ""),
+        stri_extract_last_regex("([^/]+_)") %>%
+        str_replace("_", ""),
       date = date(datetime),
       hour = hour(datetime)
     )) %>%
@@ -103,13 +103,13 @@ pollen_full_with_hirst <- list(
     # The standard compare against - mean of 2 Hirst traps
     # Internal evaluation found that on average the sucking rate is higher
     # than described by the manufacturer
-    mutate(hirst = (hirst1 + hirst2) / 2 / 1.35) %>%
-    pivot_longer(wibs:hirst, names_to = "trap", values_to = "conc") %>%
+    mutate(Hirst = (Hirst1 + Hirst2) / 2 / 1.35) %>%
+    pivot_longer("WIBS-NEO":Hirst, names_to = "trap", values_to = "conc") %>%
     arrange(trap))
 
 
 pollen_full <- map(pollen_full_with_hirst, ~.x %>%
-  filter(!trap %in% c("hirst1", "hirst2")))
+  filter(!trap %in% c("Hirst1", "Hirst2")))
 
 # After peer-review it was suggested to not exclude the full days, 
 # but rather calculate the mean concentrations as long as enough values are present.
@@ -125,7 +125,31 @@ pollen <- map(pollen_full, ~.x %>%
   filter(!is.na(conc)) %>%
   arrange(trap))
 
-pollen <- map(pollen, ~.x %>% select(-set_na))
+# Ordering traps for optimal display in Plots and Tables
+traps_names <- pollen$daily$trap %>%
+  unique() %>%
+  sort()
+traps_names <- c(traps_names[traps_names == "Hirst"], traps_names[traps_names != "Hirst"])
+
+traps_names_hirst <- pollen_full_with_hirst$daily %>%
+  filter(trap != "Hirst") %>%
+  select(trap) %>%
+  unique() %>%
+  pull() %>%
+  sort()
+traps_names_hirst <- c(traps_names_hirst[traps_names_hirst %in% c("Hirst1", "Hirst2")], traps_names_hirst[!traps_names_hirst %in% c("Hirst1", "Hirst2")])
+
+
+pollen <- map(pollen, ~.x %>% 
+  select(-set_na) %>%
+  mutate(trap = factor(trap, levels = traps_names, ordered = TRUE)))
+
+pollen_full <- map(pollen_full, ~.x %>% 
+  mutate(trap = factor(trap, levels = traps_names, ordered = TRUE)))
+
+pollen_full_with_hirst <- map(pollen_full_with_hirst, ~.x %>% 
+  filter(trap != "Hirst") %>%
+  mutate(trap = factor(trap, levels = traps_names_hirst)))
 
 usethis::use_data(pollen, overwrite = TRUE)
 usethis::use_data(pollen_full, overwrite = TRUE)

@@ -66,27 +66,28 @@ The concentrations were temporally averaged to obtain three different timeseries
 
 The preprocessed data is available to the reader in the /data folder. 
 In /data-raw/preproc.R the preprocessing is documented.
-The data has missing values in the Hirst2, Poleno(1 and 3) and RapidE timeseries. 
+The data has missing values in the Hirst2, Poleno(1 and 4) and Rapid-E timeseries. 
 For Poleno1 calibration was carried out on 11 days.
-For Poleno3 calibration was carried out on 6 days.
-For RapidE software malfunctioned (it seems) during 9 days, as discussed with MDS.
+For Poleno4 calibration was carried out on 6 days.
+For Rapid-E software malfunctioned (it seems) during 9 days, as discussed with MDS (Meteoswiss - measurements and data).
 If there was too much missing data present in a timeseries, all timeseries were set to NA for this period.
 This allows for a fair comparison between traps, only when all of them measured.
 For hourly values, every hour was investigated by itself. 
-For sixhour and daily averages, "too much missing data" was defined as more than 66% of the hourly values in the period.
+For sixhour and daily averages, "too much missing data" was defined as more than 50% of the hourly values in the period.
 The whole analysis is based on the data excluding such windows with too much missing data, except for the timeseries plot (figure 1).
 For the timeseries the full timeseries are displayed, which includes NAs for Poleno; Hirst and Rapid-E.
 
 The following eight traps are being compared:
 
 - Hirst = Mean(Hirst 1, Hirst 2) / 1.35 which will be the standard to compare against. Historically, we have the most experience with Hirst traps.
-- Hund (no hourly values)
-- KH-A
-- KH-B
-- Poleno 1
-- Poleno 4
-- Rapide
-- WIBS
+- BAA-500 (no hourly values)
+- KH-3000-A
+- KH-3000-B
+- Poleno-1
+- Poleno-4
+- Rapid-E
+- WIBS-NEO
+
 
 
 ```{r data}
@@ -127,7 +128,7 @@ missing <- map2(
 )
 
 pollen_low <- map(pollen, ~.x %>%
-    filter(trap == "hirst") %>%
+    filter(trap == "Hirst") %>%
     mutate(hirst_low = if_else(conc <= 10, TRUE, FALSE)))
 
 lower_10 <- map2(
@@ -307,22 +308,15 @@ On the other side of the spectrum, RapidE has the lowest spread in the measureme
 # Some Plots
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
+traps_names <- levels(pollen$daily$trap)
 traps_cols <- c("#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
-traps_names <- pollen$daily$trap %>%
-  unique() %>%
-  sort()
 names(traps_cols) <- traps_names
 traps_lty <- c(1, 1, 1, 3, 1, 3, 1, 1)
 names(traps_lty) <- traps_names
 
 # For the timeseries plot we need one more color and lty (both hirst traps plotted)
 traps_cols_hirst <- c("#353333", "#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
-traps_names_hirst <- pollen_full_with_hirst$daily %>%
-  filter(trap != "hirst") %>%
-  select(trap) %>%
-  unique() %>%
-  pull() %>%
-  sort()
+traps_names_hirst <- levels(pollen_full_with_hirst$daily$trap)
 names(traps_cols_hirst) <- traps_names_hirst
 traps_lty_hirst <- c(1, 3, 1, 1, 3, 1, 3, 1, 1)
 names(traps_lty_hirst) <- traps_names_hirst
@@ -350,12 +344,12 @@ pmap(
       mutate(mean = mean(conc, na.rm = TRUE)) %>%
       left_join(
         first %>%
-          filter(trap == "hirst") %>%
-          group_by(trap) %>%
+          filter(trap %in% c("Hirst1", "Hirst2")) %>%
+          group_by(datetime) %>%
           mutate(mean = mean(conc, na.rm = TRUE)) %>%
           ungroup() %>%
-          select(date, mean_hirst = mean),
-        by = "date"
+          select(datetime, mean_hirst = mean),
+        by = "datetime"
       ) %>%
       mutate(conc = conc / mean * mean_hirst) %>%
       pad(
@@ -365,7 +359,7 @@ pmap(
         by = "datetime"
       ) %>%
       filter(date < date(third),
-             trap != "hirst") %>%
+             trap != "Hirst") %>%
       ggplot(aes(x = datetime)) +
       geom_line(aes(y = conc, col = trap, lty = trap), size = 1, alpha = 0.6) +
       labs(y = "Mean Conc. [Pollen/m³]", x = "") +
@@ -490,14 +484,14 @@ errors <- map(pollen, ~ .x %>%
   # but now decided to compare to Hirst
   pivot_wider(names_from = trap, values_from = conc) %>%
   # Divsion by zero otherwise leads to many NAs, especially for hourly values
-  mutate(mean = hirst)) %>%
+  mutate(mean = Hirst)) %>%
   map_at(3, ~ .x %>%
     mutate(
       hund = NA_real_
     )) %>%
   map(~ .x %>%
-    select(datetime, date, hour, mean, all_of(traps_names)) %>%
-    pivot_longer(hirst:wibs, names_to = "trap", values_to = "conc") %>%
+    select(datetime, date, hour, mean, any_of(traps_names)) %>%
+    pivot_longer(any_of(traps_names), names_to = "trap", values_to = "conc") %>%
     mutate(reldiff = abs(conc - mean) / mean,
            trap = factor(trap, levels = traps_names)) %>%
     filter(mean > 10))
@@ -523,7 +517,7 @@ This does not mean that they measure worse than the rest. There is no golden sta
 ```{r relerrors}
 map2(errors, aggregation, function(first, second) {
   gg_errors1 <- first %>%
-    filter(trap != "hirst") %>%
+    filter(trap != "Hirst") %>%
     ggplot(aes(y = reldiff, fill = trap, lty = trap)) +
     geom_boxplot() +
     labs(y = "% Relative Difference from Hirst: |Trap\u1d62 - Hirst| / Hirst", x = "") +
@@ -556,7 +550,7 @@ A value of 1 on the y axis reflects a 10x larger value for that trap compared to
 ```{r concerrors}
 map2(errors_conc, aggregation, function(first, second) {
   gg_conc1 <- first %>%
-  filter(trap != "hirst") %>%
+  filter(trap != "Hirst") %>%
     ggplot(aes(y = reldiff, fill = trap, lty = trap)) +
     geom_boxplot() +
     labs(y = "% Relative Difference from Hirst: |Trap\u1d62 - Hirst| / Hirst", x = "") +
@@ -683,7 +677,7 @@ map2(errors_conc, aggregation, function(data, second) {
 
 # Resdiual Analysis
 
-Pollen data usually does not fulfil the assumption of ANOIA. We want to check this in the following.
+Pollen data usually does not fulfil the assumption of ANOVA. We want to check this in the following.
 
 - are the errors normally distributed?
 
@@ -695,10 +689,10 @@ distributional assumption is correct. By default, a standard normal distribution
 ```{r log}
 pollen_10 <- map(pollen, ~ .x %>%
   pivot_wider(names_from = trap, values_from = conc) %>%
-  filter(hirst > 10) %>%
-  pivot_longer(hirst:wibs, names_to = "trap", values_to = "conc") %>%
+  filter(Hirst > 10) %>%
+  pivot_longer(any_of(traps_names), names_to = "trap", values_to = "conc") %>%
   mutate(trap = factor(trap),
-         trap = relevel(trap, ref = "hirst")))
+         trap = relevel(trap, ref = "Hirst")))
 
 pollen_10_log <- map(pollen, ~ .x %>% mutate(conc = log(conc + 1)))
 ```
@@ -716,13 +710,13 @@ map2(pollen_10, pollen_10_log, function(first, second) {
 
   gg_res1 <- tibble(residuals = residuals(fit_anova, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
-    stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[5])
+    stat_qq(col = traps_cols[2]) +
+    stat_qq_line(col = traps_cols[1])
 
   gg_res2 <- tibble(residuals = residuals(fit_anova_log, type = "pearson")) %>%
     ggplot(aes(sample = residuals)) +
-    stat_qq(col = traps_cols[1]) +
-    stat_qq_line(col = traps_cols[5])
+    stat_qq(col = traps_cols[2]) +
+    stat_qq_line(col = traps_cols[1])
 
   ggarrange(gg_res1, gg_res2, nrow = 1) %>%
     annotate_figure(top = paste(
@@ -763,10 +757,10 @@ map2(pollen_10, pollen_10_log, function(first, second) {
         width = 5,
         height = 0
       ),
-      col = traps_cols[1]
+      col = traps_cols[2]
     ) +
     # geom_smooth(method = "loess", col = traps_cols[4]) +
-    geom_abline(slope = 0, intercept = 0, col = traps_cols[3], alpha = 0.9) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[1], alpha = 0.9) +
     coord_cartesian(ylim = c(-500, 500))
 
   gg_tukey2 <-
@@ -780,10 +774,11 @@ map2(pollen_10, pollen_10_log, function(first, second) {
     geom_point(
       alpha = 0.5,
       position = position_jitter(width = 0.02, height = 0),
-      col = traps_cols[1]
+      col = traps_cols[2]
     ) +
-    geom_abline(slope = 0, intercept = 0, col = traps_cols[3], alpha = 0.9) +
+    geom_abline(slope = 0, intercept = 0, col = traps_cols[1], alpha = 0.9) +
     coord_cartesian(ylim = c(-3, 3))
+
 
   ggarrange(gg_tukey1, gg_tukey2) %>%
     annotate_figure(top = paste(
@@ -867,7 +862,7 @@ data_corr <- map(pollen_10, ~ .x %>%
 corr_matrix <- map(data_corr, ~ corr.test(
   .x %>% select(-datetime),
   use = "complete",
-  method = "pearson", # Requested by Reviewer, I do not agree as normality assumptions are not fulfiled
+  method = "spearman", # Requested by Reviewer, I do not agree as normality assumptions are not fulfiled
   adjust = "holm",
   alpha = .05,
   ci = TRUE,
@@ -883,7 +878,7 @@ corr_tb <- map(corr_matrix, ~ .x %>%
       hund = NA_real_
     )) %>%
   map(~ .x %>%
-    select(trap, all_of(traps_names)) %>%
+    select(trap, any_of(traps_names)) %>%
     arrange(trap))
 
 ```
@@ -893,7 +888,7 @@ corr_tb <- map(corr_matrix, ~ .x %>%
 kable_corr <-  corr_tb %>%
   bind_rows() %>%
   mutate(across(where(is.numeric), round, 2)) %>%
-  mutate(across(hund, replace_na, "-")) %>%
+  mutate(across("BAA-500", replace_na, "-")) %>%
   setNames(c("", traps_names)) %>%
   kable(escape = FALSE) %>%
   kable_styling(c("striped", "condensed"),
@@ -906,9 +901,11 @@ kable_corr <-  corr_tb %>%
   add_header_above(c("Pearson R for Different Temporal Resolutions" = 9))
 
 save_kable(kable_corr,
-  file = paste0(here(), "/tables/table5_correlation_pearson.html")
+  file = paste0(here(), "/tables/table5_correlation_spearman.html")
 )
 kable_corr
+
+
 ```
 
 # Kruskal-Wallis Test / Omnibus Test
@@ -959,7 +956,7 @@ kable_nparcomp <- map2(pollen_10_log, aggregation, function(first, second) {
     conf.level = 0.95,
     alternative = "two.sided",
     type = "Dunnet",
-    control = "hirst"
+    control = "Hirst"
   )
 
   title <- paste(
@@ -982,17 +979,12 @@ kable_nparcomp <- map2(pollen_10_log, aggregation, function(first, second) {
     add_header_above(myheader)
 })
 
-map(aggregation, function(first) {
-  save_kable(kable_nparcomp,
-    file = paste0(
-      here(),
-      "/tables/table6_nparcomp_",
-      first, ".html"
-    )
+save_kable(kable_nparcomp,
+  file = paste0(
+    here(),
+    "/tables/table6_nparcomp.html"
   )
-})
+)
 
-kable_nparcomp$daily
-kable_nparcomp$sixhour
-kable_nparcomp$hourly
+kable_nparcomp
 ```
