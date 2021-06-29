@@ -104,7 +104,64 @@ map(aggregation, ~ pollen %>% extract2(.x))
 
 ## Some Tables
 
+The table shows the percentage of measurements still available in the underlying dataset after:
+
+  1. Removal of missing data if less than half of the measurements were available.
+  2. Additional Removal of time steps where the Hirst-Average of both traps is below 10 grains/m3.
+
+```{r missing_low}
+missing <- map2(
+  pollen, pollen_full,
+  ~ round(
+    .x %>%
+      pull(datetime) %>%
+      unique() %>%
+      length() /
+    .y %>%
+      pull(datetime) %>%
+      unique() %>%
+      length(),
+    4
+  ) %>%
+    scales::percent(accuracy = 0.1)
+)
+
+pollen_low <- map(pollen, ~.x %>%
+    filter(trap == "hirst") %>%
+    mutate(hirst_low = if_else(conc <= 10, TRUE, FALSE)))
+
+lower_10 <- map2(
+  pollen_low,
+  pollen_full,
+  ~ round(
+    .x %>%
+      filter(!hirst_low) %>%
+      pull(datetime) %>%
+      unique() %>%
+      length() /
+    .y %>%
+      pull(datetime) %>%
+      unique() %>%
+      length(),
+    4
+  ) %>%
+    scales::percent(accuracy = 0.1)
+)
+
+kable_data_exclusion <- as_tibble(missing) %>%
+  bind_rows(as_tibble(lower_10)) %>%
+  bind_cols(tibble(Comment = c("After removal of missing data", "After removal of missing data or Hirst-mean <= 10 grains/m3"))) %>%
+  kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+                full_width = FALSE,
+                font_size = 20)
+
+save_kable(kable_data_exclusion, file = paste0(here(), "/tables/table0_kable_data_exclusion.html"))
+kable_data_exclusion
+
+```
 The number of traps measuring pollen simultaneously decreases with higher temporal resolution.
+This table shows the number of traps measuring 0 pollen (note that missing values were already excluded).
 
 ```{r ntraps}
 number_of_measurements <- map(pollen, ~ .x %>%
@@ -890,7 +947,7 @@ The Null-Hypothesis that the median of all traps are equal can clearly be reject
 https://www.researchgate.net/publication/282206980_nparcomp_An_R_Software_Package_for_Nonparametric_Multiple_Comparisons_and_Simultaneous_Confidence_Intervals 
 The R package nparcomp implements a broad range of rank-based nonparametric methods for multiple comparisons. 
 The single step procedures provide local test decisions in terms of multiplicity adjusted p-values and simultaneous conﬁdence intervals. 
-The null hypothesis H0: p = 1/2 is signiﬁcantly rejected at 5% level of signiﬁcance for many pairwise comparisons.
+The null hypothesis H0: p = 1/2 is significantly rejected at 5% level of significance for many pairwise comparisons.
 Whenever the p-Value is < than 5% = the confidence interval contains 0.5 -> the effect from the factor trap is not statistically meaningful.
 The Estimator can also be interpreted as a proxy for the relative difference in median for two traps.
 If the Estimator is > 0.5 then the second trap tends to have larger measurements.

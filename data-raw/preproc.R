@@ -53,7 +53,7 @@ sixhour <- pollen_raw$hourly %>%
     )
   ) %>%
   group_by(date, hour, trap) %>%
-  summarise(conc = if_else(sum(is.na(conc)) <= 1,
+  summarise(conc = if_else(sum(is.na(conc)) <= 3,
     mean(conc, na.rm = TRUE),
     NA_real_
   )) %>%
@@ -73,7 +73,7 @@ sixhour <- pollen_raw$hourly %>%
 daily <- pollen_raw$hourly %>%
   group_by(trap, date) %>%
   mutate(missing_values = sum(is.na(conc))) %>%
-  summarise(conc = if_else(sum(is.na(conc)) <= 4,
+  summarise(conc = if_else(sum(is.na(conc)) <= 12,
     mean(conc, na.rm = TRUE),
     NA_real_
   )) %>%
@@ -110,53 +110,13 @@ pollen_full_with_hirst <- list(
 
 pollen_full <- map(pollen_full_with_hirst, ~.x %>%
   filter(!trap %in% c("hirst1", "hirst2")))
-# # To be very conservative, days with calibration events
-# # have been excluded for all traps. 2019 was the year of
-# # initial deployment, hence there are quite a few days to be excluded.
-# pollen <- pollen_full %>%
-#   map(~ .x %>%
-#     filter(
-#       !(date %in% c(
-#         # Here Poleno 1  was undergoing calibration
-#         date("2019-04-20"),
-#         date("2019-04-21"),
-#         date("2019-04-22"),
-#         date("2019-04-25"),
-#         date("2019-04-29"),
-#         date("2019-05-09"),
-#         date("2019-05-10"),
-#         date("2019-05-14"),
-#         date("2019-05-15"),
-#         date("2019-05-27"),
-#         date("2019-05-31"),
-#         # Here Poleno 1  was undergoing calibration
-#         date("2019-05-13"),
-#         date("2019-05-14"),
-#         date("2019-05-15"),
-#         date("2019-05-16"),
-#         date("2019-05-26"),
-#         date("2019-05-27"),
-#         # Here Hirst2 has missing data
-#         date("2019-04-23"),
-#         date("2019-05-31"),
-#         # Here Rapide had a software issue (values provided in chunks)
-#         date("2019-04-22"),
-#         date("2019-04-23"),
-#         date("2019-04-24"),
-#         date("2019-04-25"),
-#         date("2019-04-26"),
-#         date("2019-05-01"),
-#         date("2019-05-07"),
-#         date("2019-05-17"),
-#         date("2019-05-24")
-#       ))
-#     ))
 
-# After peer-review it was suggested to not exclude the full days, but rather calculate the mean concentrations as long as enough values are present.
-# For the sixhour averages we at least 4 values must be !na and for the daily averages at least 16 must be !na.
-# This threshold of 66% availability of data is somewhat arbitrary.
-
-
+# After peer-review it was suggested to not exclude the full days, 
+# but rather calculate the mean concentrations as long as enough values are present.
+# For the sixhour averages we at least 3 values must be !na and for the daily averages at least 12 must be !na.
+# This threshold of 50% availability of data is somewhat arbitrary, but achieves a good balance between 
+# being overly conservative and still having all characteristic 
+# peaks in the pollen season available in the data.
 pollen <- map(pollen_full, ~.x %>%
   group_by(datetime) %>%
   mutate(set_na = if_else(any(is.na(conc)), TRUE, FALSE)) %>%
@@ -165,7 +125,7 @@ pollen <- map(pollen_full, ~.x %>%
   filter(!is.na(conc)) %>%
   arrange(trap))
 
-
+pollen <- map(pollen, ~.x %>% select(-set_na))
 
 usethis::use_data(pollen, overwrite = TRUE)
 usethis::use_data(pollen_full, overwrite = TRUE)
