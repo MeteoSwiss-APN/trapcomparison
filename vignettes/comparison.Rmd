@@ -31,8 +31,6 @@ knitr::opts_chunk$set(
 )
 
 library(caTools)
-library(httpgd)
-library(languageserver)
 library(MASS)
 library(tidyverse)
 library(magrittr)
@@ -56,6 +54,7 @@ conflict_prefer("extract", "magrittr")
 # Data Import
 
 The data was prepared by Fiona Tummon (main author of paper) and stored in the /data-raw Folder.
+This first step of data preparation is not documented here.
 Nine different Pollen Traps were situated on the roof in Payerne and continuously measured pollen 
 grains between 19.04.2019 - 31.05.2019.
 For the sake of simplicity we only look at concentrations of total pollen (i.e. the sum of all pollen taxa).
@@ -68,12 +67,14 @@ The concentrations were temporally averaged to obtain three different timeseries
 The preprocessed data is available to the reader in the /data folder. 
 In /data-raw/preproc.R the preprocessing is documented.
 The data has missing values in the Hirst2, Poleno(1 and 3) and RapidE timeseries. 
-To be as conservative as possible all dates with missing pollen measurements were removed.
 For Poleno1 calibration was carried out on 11 days.
 For Poleno3 calibration was carried out on 6 days.
 For RapidE software malfunctioned (it seems) during 9 days, as discussed with MDS.
-These full 21 unique days were excluded from the analysis for all traps and temporal resolutions.
-The whole analysis is based on the data excluding these 21 days, except for the timeseries plot (figure 1).
+If there was too much missing data present in a timeseries, all timeseries were set to NA for this period.
+This allows for a fair comparison between traps, only when all of them measured.
+For hourly values, every hour was investigated by itself. 
+For sixhour and daily averages, "too much missing data" was defined as more than 66% of the hourly values in the period.
+The whole analysis is based on the data excluding such windows with too much missing data, except for the timeseries plot (figure 1).
 For the timeseries the full timeseries are displayed, which includes NAs for Poleno; Hirst and Rapid-E.
 
 The following eight traps are being compared:
@@ -83,7 +84,7 @@ The following eight traps are being compared:
 - KH-A
 - KH-B
 - Poleno 1
-- Poleno 3
+- Poleno 4
 - Rapide
 - WIBS
 
@@ -93,6 +94,7 @@ The following eight traps are being compared:
 load(paste0(here(), "/data/pollen.rda"))
 # The data with calibration days for the timeseries plot
 load(paste0(here(), "/data/pollen_full.rda"))
+load(paste0(here(), "/data/pollen_full_with_hirst.rda"))
 aggregation <- c("daily", "sixhour", "hourly")
 map(aggregation, ~ pollen %>% extract2(.x))
 
@@ -102,7 +104,64 @@ map(aggregation, ~ pollen %>% extract2(.x))
 
 ## Some Tables
 
+The table shows the percentage of measurements still available in the underlying dataset after:
+
+  1. Removal of missing data if less than half of the measurements were available.
+  2. Additional Removal of time steps where the Hirst-Average of both traps is below 10 grains/m3.
+
+```{r missing_low}
+missing <- map2(
+  pollen, pollen_full,
+  ~ round(
+    .x %>%
+      pull(datetime) %>%
+      unique() %>%
+      length() /
+    .y %>%
+      pull(datetime) %>%
+      unique() %>%
+      length(),
+    4
+  ) %>%
+    scales::percent(accuracy = 0.1)
+)
+
+pollen_low <- map(pollen, ~.x %>%
+    filter(trap == "hirst") %>%
+    mutate(hirst_low = if_else(conc <= 10, TRUE, FALSE)))
+
+lower_10 <- map2(
+  pollen_low,
+  pollen_full,
+  ~ round(
+    .x %>%
+      filter(!hirst_low) %>%
+      pull(datetime) %>%
+      unique() %>%
+      length() /
+    .y %>%
+      pull(datetime) %>%
+      unique() %>%
+      length(),
+    4
+  ) %>%
+    scales::percent(accuracy = 0.1)
+)
+
+kable_data_exclusion <- as_tibble(missing) %>%
+  bind_rows(as_tibble(lower_10)) %>%
+  bind_cols(tibble(Comment = c("After removal of missing data", "After removal of missing data or Hirst-mean <= 10 grains/m3"))) %>%
+  kable(escape = FALSE) %>%
+  kable_styling(c("striped", "condensed"),
+                full_width = FALSE,
+                font_size = 20)
+
+save_kable(kable_data_exclusion, file = paste0(here(), "/tables/table0_kable_data_exclusion.html"))
+kable_data_exclusion
+
+```
 The number of traps measuring pollen simultaneously decreases with higher temporal resolution.
+This table shows the number of traps measuring 0 pollen (note that missing values were already excluded).
 
 ```{r ntraps}
 number_of_measurements <- map(pollen, ~ .x %>%
@@ -141,8 +200,8 @@ kable_ntraps <- pmap(
   column_spec(1, border_right = TRUE) %>%
   collapse_rows(columns = 1) %>%
   pack_rows(NULL, 1, 1, indent = FALSE) %>%
-  pack_rows(NULL, 2, 4, indent = FALSE) %>%
-  pack_rows(NULL, 5, 7, indent = FALSE)
+  pack_rows(NULL, 2, 5, indent = FALSE) %>%
+  pack_rows(NULL, 6, 10, indent = FALSE)
 
 save_kable(kable_ntraps, file = paste0(here(), "/tables/table1_ntraps.html"))
 kable_ntraps
@@ -246,16 +305,28 @@ The coefficient of variation (CV) for the Polenos is the largest in the study.
 On the other side of the spectrum, RapidE has the lowest spread in the measurements.
 
 # Some Plots
-
 ```{r theme}
 theme_set(theme_minimal(base_size = 14) + theme(legend.title = element_blank()))
-traps_cols <- c("#252424", RColorBrewer::brewer.pal(8, "Set2")[c(7, 4, 6, 2, 3, 5, 1)])
+traps_cols <- c("#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
 traps_names <- pollen$daily$trap %>%
   unique() %>%
   sort()
 names(traps_cols) <- traps_names
-```
+traps_lty <- c(1, 1, 1, 3, 1, 3, 1, 1)
+names(traps_lty) <- traps_names
 
+# For the timeseries plot we need one more color and lty (both hirst traps plotted)
+traps_cols_hirst <- c("#353333", "#252424", "#E5C494", "#8DA0CB", "#4a5f92", "#e98962", "#c25a30", "#FFD92F", "#66C2A5")
+traps_names_hirst <- pollen_full_with_hirst$daily %>%
+  filter(trap != "hirst") %>%
+  select(trap) %>%
+  unique() %>%
+  pull() %>%
+  sort()
+names(traps_cols_hirst) <- traps_names_hirst
+traps_lty_hirst <- c(1, 3, 1, 1, 3, 1, 3, 1, 1)
+names(traps_lty_hirst) <- traps_names_hirst
+```
 ## Timeseries
 
 The differences between the traps are quite substantial looking at these timeseries. 
@@ -263,14 +334,15 @@ Most traps were able to identify days with higher pollen occurrence,
 but the performance varies a lot (maybe also species dependent).
 The concentrations are scaled here to match Hirst (conc / mean(trap_i) * mean(trap_hirst)).
 Where the mean for each trap was calculated across all days of the study.
+For this timeseries plot both Hirst devices are plotted separately
 
 
 ```{r timeseries}
 pmap(
   list(
-    pollen_full,
+    pollen_full_with_hirst,
     aggregation,
-    c("2019-05-31", "2019-04-25", "2019-04-22")
+    c("2019-05-31", "2019-05-01", "2019-04-25")
   ),
   function(first, second, third, fourth) {
     gg_time1 <- first %>%
@@ -292,16 +364,18 @@ pmap(
         group = c("trap"),
         by = "datetime"
       ) %>%
-      filter(date < date(third)) %>%
+      filter(date < date(third),
+             trap != "hirst") %>%
       ggplot(aes(x = datetime)) +
-      geom_line(aes(y = conc, col = trap), alpha = 0.8) +
+      geom_line(aes(y = conc, col = trap, lty = trap), size = 1, alpha = 0.6) +
       labs(y = "Mean Conc. [Pollen/m³]", x = "") +
       ggtitle(paste0(
         "Timeseries of ",
         tools::toTitleCase(second),
         " Total Pollen Concentrations"
       )) +
-      scale_color_manual(values = traps_cols)
+      scale_color_manual(values = traps_cols_hirst) +
+      scale_linetype_manual(values = traps_lty_hirst)
 
     ggsave(paste0(here(), "/figures/fig1_timeseries_", second, ".png"),
       gg_time1,
@@ -319,9 +393,10 @@ Wibs, Rapide and KHB measured less pollen than the other traps, overall.
 map2(pollen, aggregation, function(first, second) {
   gg_box1 <- first %>%
     ggplot() +
-    geom_boxplot(aes(y = log10(conc + 1), fill = trap), alpha = 0.8) +
+    geom_boxplot(aes(y = log10(conc + 1), fill = trap, lty = trap), alpha = 0.8) +
     labs(y = "Log Mean Conc. [Pollen/m³]", x = "") +
     scale_fill_manual(values = traps_cols) +
+    scale_linetype_manual(values = traps_lty) +
     ggtitle(paste0(
       "Boxplot of ",
       tools::toTitleCase(second),
@@ -449,10 +524,12 @@ This does not mean that they measure worse than the rest. There is no golden sta
 map2(errors, aggregation, function(first, second) {
   gg_errors1 <- first %>%
     filter(trap != "hirst") %>%
-    ggplot(aes(y = reldiff, fill = trap)) +
+    ggplot(aes(y = reldiff, fill = trap, lty = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Hirst", x = "") +
+    labs(y = "% Relative Difference from Hirst: |Trap\u1d62 - Hirst| / Hirst", x = "") +
     scale_fill_manual(values = traps_cols) +
+    scale_linetype_manual(values = traps_lty) +
+    scale_y_continuous(labels=scales::percent) +
     ggtitle(paste0(
       "Boxplot of ",
       tools::toTitleCase(second),
@@ -460,7 +537,7 @@ map2(errors, aggregation, function(first, second) {
     )) +
     theme(legend.position = "bottom") +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    coord_cartesian(ylim = c(0, 3))
+    coord_cartesian(ylim = c(0, 10))
 
   ggsave(paste0(here(), "/figures/fig4_relerror_boxplot_", second, ".png"),
     gg_errors1,
@@ -480,19 +557,23 @@ A value of 1 on the y axis reflects a 10x larger value for that trap compared to
 map2(errors_conc, aggregation, function(first, second) {
   gg_conc1 <- first %>%
   filter(trap != "hirst") %>%
-    ggplot(aes(y = log10(reldiff), fill = trap)) +
+    ggplot(aes(y = reldiff, fill = trap, lty = trap)) +
     geom_boxplot() +
-    labs(y = "Relative Difference from Hirst Mean (Log)", x = "") +
+    labs(y = "% Relative Difference from Hirst: |Trap\u1d62 - Hirst| / Hirst", x = "") +
     scale_fill_manual(values = traps_cols) +
+    scale_linetype_manual(values = traps_lty) +
     ggtitle(paste0(
-      "Boxplot of ",
+      "Boxplot of Relative ",
       tools::toTitleCase(second),
-      " Log. Measurement Differences"
+      " Measurement Differences"
     )) +
     theme(legend.position = "bottom") +
     annotation_logticks(sides = "l") +
+    scale_y_continuous(trans = 'log10',
+                       breaks = scales::trans_breaks('log10', function(x) 10^x),
+                       labels = scales::label_percent(accuracy = 1, big.mark = "'"),
+                       limits = c(0.01, 100)) +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    coord_cartesian(ylim = c(-1.5, 1.5)) +
     facet_wrap(~group)
 
   ggsave(paste0(here(), "/figures/fig5_relerror_conc_boxplot_", second, ".png"),
@@ -566,11 +647,12 @@ map2(errors_conc, aggregation, function(data, second) {
       if (nrow(conc_plot_data) > 0) {
         conc_plot_data %>%
           ggplot() +
-          geom_density(aes(x = conc, col = trap, fill = trap), alpha = 0.1) +
+          geom_density(aes(x = conc, col = trap, fill = trap, lty = trap), alpha = 0.1) +
           scale_fill_manual(
             values = traps_cols,
             aesthetics = c("colour", "fill")
           ) +
+          scale_linetype_manual(values = traps_lty) +
           ggtitle(first) +
           theme(legend.position = "bottom") +
           coord_cartesian(xlim = c(0, second))
@@ -614,7 +696,7 @@ distributional assumption is correct. By default, a standard normal distribution
 pollen_10 <- map(pollen, ~ .x %>%
   pivot_wider(names_from = trap, values_from = conc) %>%
   filter(hirst > 10) %>%
-  pivot_longer(KHA:hirst, names_to = "trap", values_to = "conc") %>%
+  pivot_longer(hirst:wibs, names_to = "trap", values_to = "conc") %>%
   mutate(trap = factor(trap),
          trap = relevel(trap, ref = "hirst")))
 
@@ -785,7 +867,7 @@ data_corr <- map(pollen_10, ~ .x %>%
 corr_matrix <- map(data_corr, ~ corr.test(
   .x %>% select(-datetime),
   use = "complete",
-  method = "spearman",
+  method = "pearson", # Requested by Reviewer, I do not agree as normality assumptions are not fulfiled
   adjust = "holm",
   alpha = .05,
   ci = TRUE,
@@ -821,10 +903,10 @@ kable_corr <-  corr_tb %>%
   pack_rows("Daily", 1, 8, indent = FALSE) %>%
   pack_rows("Six-Hour", 9, 16, indent = FALSE) %>%
   pack_rows("Hourly", 17, 22, indent = FALSE) %>%
-  add_header_above(c("Spearman Rho for Different Temporal Resolutions" = 9))
+  add_header_above(c("Pearson R for Different Temporal Resolutions" = 9))
 
 save_kable(kable_corr,
-  file = paste0(here(), "/tables/table5_correlation.html")
+  file = paste0(here(), "/tables/table5_correlation_pearson.html")
 )
 kable_corr
 ```
@@ -865,7 +947,7 @@ The Null-Hypothesis that the median of all traps are equal can clearly be reject
 https://www.researchgate.net/publication/282206980_nparcomp_An_R_Software_Package_for_Nonparametric_Multiple_Comparisons_and_Simultaneous_Confidence_Intervals 
 The R package nparcomp implements a broad range of rank-based nonparametric methods for multiple comparisons. 
 The single step procedures provide local test decisions in terms of multiplicity adjusted p-values and simultaneous conﬁdence intervals. 
-The null hypothesis H0: p = 1/2 is signiﬁcantly rejected at 5% level of signiﬁcance for many pairwise comparisons.
+The null hypothesis H0: p = 1/2 is significantly rejected at 5% level of significance for many pairwise comparisons.
 Whenever the p-Value is < than 5% = the confidence interval contains 0.5 -> the effect from the factor trap is not statistically meaningful.
 The Estimator can also be interpreted as a proxy for the relative difference in median for two traps.
 If the Estimator is > 0.5 then the second trap tends to have larger measurements.
