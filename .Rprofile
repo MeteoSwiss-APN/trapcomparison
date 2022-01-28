@@ -1,7 +1,5 @@
 source("renv/activate.R")
 
-
-# The following code optimizes workflow in VSCode
 Sys.setenv(TERM_PROGRAM = "vscode")
 
 source(file.path(
@@ -14,6 +12,7 @@ source(file.path(
   ".vscode-R", "init.R"
 ))
 
+
 if (interactive() && Sys.getenv("TERM_PROGRAM") == "vscode") {
   options(vsc.browser = "Beside")
   options(vsc.viewer = "Beside")
@@ -24,7 +23,6 @@ if (interactive() && Sys.getenv("TERM_PROGRAM") == "vscode") {
     options(html_type = "html")
     options(vsc.helpPanel = FALSE)
     options(device = function(...) {
-      # On Tsa the fonts are not automatically recognized by hdd
       httpgd::hgd()
       .vsc.browser(httpgd::hgd_url(), viewer = "Beside")
     })
